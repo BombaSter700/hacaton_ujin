@@ -1,20 +1,12 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import (
-    Column,
-    String,
-    Boolean,
-    ForeignKey,
-    DateTime,
-    Float,
-    Enum,
-    Integer,
+    Column, String, Boolean, ForeignKey, DateTime, Float, Enum, Integer, UniqueConstraint
 )
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
 from .base import Base
 import enum
-
 
 class DeviceStatus(str, enum.Enum):
     ONLINE = "online"
@@ -26,11 +18,19 @@ class DeviceStatus(str, enum.Enum):
 class Device(Base):
     __tablename__ = "devices"
 
+    # Защита от дублей
+    __table_args__ = (
+        UniqueConstraint('integration_id', 'external_id', name='uq_integration_external_id'),
+    )
+    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     integration_id = Column(
         UUID(as_uuid=True), ForeignKey("integrations.id"), nullable=False
     )
     external_id = Column(String, nullable=False, index=True)
+    # URL эмулятора для отправки команд
+    base_url = Column(String, nullable=True)
+
     object_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     room_id = Column(UUID(as_uuid=True), nullable=True)
     name = Column(String, nullable=False)
@@ -39,16 +39,11 @@ class Device(Base):
 
     status = Column(Enum(DeviceStatus), default=DeviceStatus.UNKNOWN)
 
-    # Когда устройство впервые появилось в системе / было привязано
     connected_at = Column(DateTime, nullable=True)
-
-    # Когда устройство последний раз выходило на связь (heartbeat/polling)
     last_seen_at = Column(DateTime, nullable=True)
-
-    # Если устройство отключено (is_active=False), когда это произошло
     disconnected_at = Column(DateTime, nullable=True)
 
-    # Метаданные "железа" (часто приходят из Ujin API)
+    # Метаданные железа
     serial_number = Column(String, nullable=True, index=True)
     mac_address = Column(String, nullable=True)
     ip_address = Column(String, nullable=True)
@@ -56,9 +51,9 @@ class Device(Base):
     battery_level = Column(Float, nullable=True)  # Для беспроводных датчиков (0-100)
 
     created_at = Column(DateTime, default=datetime.utcnow)
-    # Часовой пояс (IANA формат, например "Europe/Moscow")
+    # Часовой пояс
     timezone = Column(String, default="UTC", nullable=False)
-    # Если устройство не выходит на связь дольше этого времени -> статус OFFLINE
+    # Если устройство не выходит на связь дольше этого времени - статус OFFLINE
     polling_interval_seconds = Column(Integer, default=60, nullable=False)
     # Теги / Категории (массив строк)
     tags = Column(ARRAY(String), default=list, nullable=False)
@@ -73,6 +68,11 @@ class Device(Base):
 
 class Signal(Base):
     __tablename__ = "signals"
+
+    # Защита от дублей
+    __table_args__ = (
+        UniqueConstraint('device_id', 'external_signal_id', name='uq_device_external_signal'),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     device_id = Column(UUID(as_uuid=True), ForeignKey("devices.id"), nullable=False)
