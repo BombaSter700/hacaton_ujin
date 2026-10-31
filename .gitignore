@@ -360,3 +360,6 @@ infra/docker/krakend/symmetric_jwk.json
 install-backend-deps.ps1
 run-backend-tests.ps1
 scripts/generate_clickhouse_audit_mocks.py
+
+# Build context for the local emulator container
+!backend/emulators/.dockerignore

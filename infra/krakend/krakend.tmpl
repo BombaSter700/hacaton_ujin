@@ -1,0 +1,33 @@
+{
+  "$schema": "https://www.krakend.io/schema/v2.13/krakend.json",
+  "version": 3,
+  "name": "Programmisto API Gateway",
+  "port": 8080,
+  "timeout": "10s",
+  "extra_config": {
+    "security/cors": {
+      "allow_origins": {{ env "CORS_ALLOW_ORIGINS" | default "[\"http://localhost:3000\",\"http://localhost:3001\"]" }},
+      "allow_methods": [
+        "GET",
+        "POST",
+        "PATCH",
+        "DELETE",
+        "OPTIONS"
+      ],
+      "allow_headers": [
+        "Authorization",
+        "Content-Type",
+        "Accept"
+      ],
+      "expose_headers": [
+        "Content-Type",
+        "Retry-After"
+      ],
+      "max_age": "1h",
+      "allow_credentials": false
+    }
+  },
+  "endpoints": [
+    {{ template "auth_story.tmpl" . }}
+  ]
+}

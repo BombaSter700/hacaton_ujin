@@ -1,0 +1,11 @@
+[
+  {"family": "thermostat", "serial": "local-thermostat-001", "port": 8099},
+  {"family": "leak", "serial": "local-leak-001", "port": 8100},
+  {"family": "hub", "serial": "local-hub-001", "port": 8101},
+  {"family": "counter", "serial": "local-counter-001", "port": 8102},
+  {"family": "light", "serial": "local-light-001", "port": 8103},
+  {"family": "ventilation", "serial": "local-ventilation-001", "port": 8104},
+  {"family": "fire", "serial": "local-fire-001", "port": 8105},
+  {"family": "barrier", "serial": "local-barrier-001", "port": 8106},
+  {"family": "elevator", "serial": "local-elevator-001", "port": 8107}
+]

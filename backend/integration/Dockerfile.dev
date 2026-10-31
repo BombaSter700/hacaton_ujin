@@ -1,0 +1,28 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies including wait-for-it
+RUN apt-get update && apt-get install -y \
+    gcc \
+    curl \
+    wget \
+    netcat-openbsd \
+    && wget -O /wait-for-it.sh https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh \
+    && chmod +x /wait-for-it.sh \
+    && apt-get remove -y wget \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy and install requirements
+COPY integration/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy configuration files
+COPY integration/alembic.ini .
+COPY integration/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+# app, migrations будут монтироваться через volumes
+
+ENTRYPOINT ["/docker-entrypoint.sh"]

@@ -1,0 +1,213 @@
+{
+  "endpoint": "/api/v1/auth/register",
+  "method": "POST",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "AUTH_SERVICE_URL" | default "http://programmisto_auth:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/auth/register",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/v1/auth/login",
+  "method": "POST",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "AUTH_SERVICE_URL" | default "http://programmisto_auth:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/auth/login",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/v1/auth/refresh",
+  "method": "POST",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "AUTH_SERVICE_URL" | default "http://programmisto_auth:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/auth/refresh",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/v1/auth/logout",
+  "method": "POST",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "AUTH_SERVICE_URL" | default "http://programmisto_auth:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/auth/logout",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/v1/auth/me",
+  "method": "GET",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "AUTH_SERVICE_URL" | default "http://programmisto_auth:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/auth/me",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/v1/users/",
+  "method": "GET",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "input_query_strings": [
+    "skip",
+    "limit"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "AUTH_SERVICE_URL" | default "http://programmisto_auth:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/users/",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/v1/users/me",
+  "method": "PATCH",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "AUTH_SERVICE_URL" | default "http://programmisto_auth:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/users/me",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/v1/sessions/",
+  "method": "GET",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "AUTH_SERVICE_URL" | default "http://programmisto_auth:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/sessions/",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/v1/sessions/{session_id}",
+  "method": "DELETE",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "AUTH_SERVICE_URL" | default "http://programmisto_auth:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/sessions/{session_id}",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/auth/health/live",
+  "method": "GET",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "AUTH_SERVICE_URL" | default "http://programmisto_auth:8000" | toJson }}
+      ],
+      "url_pattern": "/health/live",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/auth/health/ready",
+  "method": "GET",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "AUTH_SERVICE_URL" | default "http://programmisto_auth:8000" | toJson }}
+      ],
+      "url_pattern": "/health/ready",
+      "encoding": "no-op"
+    }
+  ]
+}

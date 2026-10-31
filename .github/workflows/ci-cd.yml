@@ -1,0 +1,178 @@
+name: CI and staging deployment
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Deploy tested images to the staging VPS (main only)
+        type: boolean
+        default: false
+      platform:
+        description: VPS CPU architecture
+        type: choice
+        options: [linux/amd64, linux/arm64]
+        default: linux/amd64
+
+permissions:
+  contents: read
+
+# Do not interrupt a deployment or a migration with a newer run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: '3.12'
+  DOCKER_REGISTRY: ghcr.io/programmisto
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: docker/setup-buildx-action@v3
+      - name: Check Python errors
+        run: |
+          python -m pip install ruff==0.14.3
+          ruff check backend/auth/app backend/emulators scripts --select E9,F63,F7,F82 --output-format=github
+      - name: Validate Bake files
+        run: python scripts/sync-bake.py --check
+      - name: Validate KrakenD configuration
+        run: docker run --rm -e FC_ENABLE=1 -e FC_TEMPLATES=/etc/krakend/templates -v "$PWD/infra/krakend:/etc/krakend:ro" krakend:2.13.11 check -c /etc/krakend/krakend.tmpl
+      - name: Validate staging Compose and release contents
+        run: python scripts/check-staging.py
+      - name: Check deploy script syntax
+        run: bash -n scripts/deploy-staging.sh
+
+  auth-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: auth_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U postgres -d auth_test"
+          --health-interval=5s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/auth/requirements.txt
+      - run: python -m pip install -r requirements.txt
+        working-directory: backend/auth
+      - run: python -m pytest -q
+        working-directory: backend/auth
+        env:
+          AUTH_TEST_DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/auth_test
+
+  emulator-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: python -m unittest discover -s backend/emulators/tests
+
+  build:
+    needs: [validate, auth-tests, emulator-tests]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{ steps.release.outputs.image_tag }}
+    env:
+      IMAGE_TAG: sha-${{ github.sha }}
+      TARGET_PLATFORM: ${{ inputs.platform || 'linux/amd64' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build auth and emulators
+        uses: docker/bake-action@v6
+        with:
+          files: infra/docker/docker-bake.hcl
+          targets: default
+          push: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+          set: |
+            *.labels.org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            *.labels.org.opencontainers.image.revision=${{ github.sha }}
+            programmisto_auth.cache-from=type=gha,scope=programmisto-auth
+            programmisto_auth.cache-to=type=gha,mode=max,scope=programmisto-auth
+            programmisto_emulators.cache-from=type=gha,scope=programmisto-emulators
+            programmisto_emulators.cache-to=type=gha,mode=max,scope=programmisto-emulators
+      - id: release
+        name: Record release tag
+        run: echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 20
+    concurrency:
+      group: programmisto-staging
+      cancel-in-progress: false
+    env:
+      STAGING_HOST: ${{ secrets.STAGING_HOST }}
+      STAGING_USER: ${{ secrets.STAGING_USER }}
+      STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+      STAGING_SSH_KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+      STAGING_SSH_PORT: ${{ vars.STAGING_SSH_PORT || '22' }}
+      STAGING_DEPLOY_PATH: ${{ vars.STAGING_DEPLOY_PATH || '/srv/programmisto' }}
+      IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate deployment settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in STAGING_HOST STAGING_USER STAGING_SSH_KEY STAGING_SSH_KNOWN_HOSTS; do
+            if [ -z "${!key}" ]; then echo "::error::Missing $key"; exit 1; fi
+          done
+          [[ "$STAGING_HOST" =~ ^[a-zA-Z0-9.-]+$ ]]
+          [[ "$STAGING_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ "$STAGING_SSH_PORT" =~ ^[0-9]+$ ]]
+          [[ "$STAGING_DEPLOY_PATH" =~ ^/[a-zA-Z0-9/_-]+$ && "$STAGING_DEPLOY_PATH" != / ]]
+      - name: Configure SSH with pinned host key
+        shell: bash
+        run: |
+          umask 077
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$STAGING_SSH_KEY" > "$HOME/.ssh/staging_key"
+          printf '%s\n' "$STAGING_SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+      - name: Upload release without secrets or application sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_id="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          remote_dir="$STAGING_DEPLOY_PATH/releases/$release_id"
+          tar -czf release.tgz compose.staging.yml scripts/deploy-staging.sh infra/postgres/init-databases.sh infra/postgres/pg_hba.conf infra/clickhouse/init-databases.sh infra/krakend/krakend.tmpl infra/krakend/templates
+          ssh -i "$HOME/.ssh/staging_key" -p "$STAGING_SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$STAGING_USER@$STAGING_HOST" "mkdir -p -- '$remote_dir'"
+          scp -i "$HOME/.ssh/staging_key" -P "$STAGING_SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes release.tgz "$STAGING_USER@$STAGING_HOST:$remote_dir/release.tgz"
+          ssh -i "$HOME/.ssh/staging_key" -p "$STAGING_SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$STAGING_USER@$STAGING_HOST" "cd '$remote_dir' && tar -xzf release.tgz && bash scripts/deploy-staging.sh '$STAGING_DEPLOY_PATH' '$IMAGE_TAG' '$DOCKER_REGISTRY'"
+      - name: Remove temporary SSH key
+        if: always()
+        run: rm -f "$HOME/.ssh/staging_key"
