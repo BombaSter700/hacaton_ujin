@@ -2,12 +2,23 @@
   "group": {
     "default": {
       "targets": [
+        "programmisto_admin_panel",
         "programmisto_auth",
         "programmisto_emulators"
       ]
     }
   },
   "target": {
+    "programmisto_admin_panel": {
+      "context": "frontend/admin-panel",
+      "dockerfile": "Dockerfile",
+      "tags": [
+        "${DOCKER_REGISTRY}/programmisto_admin_panel:${IMAGE_TAG}"
+      ],
+      "platforms": [
+        "${TARGET_PLATFORM}"
+      ]
+    },
     "programmisto_auth": {
       "context": "backend",
       "dockerfile": "auth/Dockerfile",

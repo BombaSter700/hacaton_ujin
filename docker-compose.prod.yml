@@ -290,6 +290,37 @@ services:
     depends_on:
       programmisto_auth:
         condition: service_healthy
+  programmisto_admin_panel:
+    image: ghcr.io/programmisto/programmisto_admin_panel:prod
+    build:
+      context: ./frontend/admin-panel
+      dockerfile: Dockerfile
+    pull_policy: build
+    ports:
+    - 127.0.0.1:${ADMIN_PANEL_PORT:-3000}:3000
+    environment:
+      NODE_ENV: production
+      NUXT_PUBLIC_API_URL: ${FRONTEND_API_URL:-http://localhost:8080}
+      NUXT_PUBLIC_INTEGRATION_API_URL: ${FRONTEND_INTEGRATION_API_URL:-http://localhost:8002}
+    networks:
+    - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/admin/api/health').then(async r => { if (!r.ok || (await r.json()).status !== 'ok') process.exit(1) }).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
 volumes:
   postgres_data: null
   redis_data: null

@@ -11,7 +11,7 @@ variable "TARGET_PLATFORM" {
 }
 
 group "default" {
-  targets = ["programmisto_auth", "programmisto_emulators"]
+  targets = ["programmisto_auth", "programmisto_emulators", "programmisto_admin_panel"]
 }
 
 target "programmisto_auth" {
@@ -25,5 +25,12 @@ target "programmisto_emulators" {
   context    = "./backend/emulators"
   dockerfile = "Dockerfile"
   tags       = ["${DOCKER_REGISTRY}/programmisto_emulators:${IMAGE_TAG}"]
+  platforms  = [TARGET_PLATFORM]
+}
+
+target "programmisto_admin_panel" {
+  context    = "./frontend/admin-panel"
+  dockerfile = "Dockerfile"
+  tags       = ["${DOCKER_REGISTRY}/programmisto_admin_panel:${IMAGE_TAG}"]
   platforms  = [TARGET_PLATFORM]
 }

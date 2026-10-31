@@ -367,3 +367,7 @@ scripts/generate_clickhouse_audit_mocks.py
 # VPS configuration templates
 !.env.prod.example
 !backend/auth/alembic.ini
+
+# Admin panel build context
+!frontend/admin-panel/.dockerignore
+!frontend/admin-panel/package-lock.json

@@ -1,45 +1,17 @@
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineNuxtConfig({
-  app: {
-    baseURL: '/admin'
-  },
+  compatibilityDate: '2026-10-31',
+  app: { baseURL: '/admin/' },
   runtimeConfig: {
     public: {
-      apiUrl: '',
-      wsPort: ''
-    }
+      apiUrl: 'http://localhost:8080',
+      integrationApiUrl: 'http://localhost:8002',
+      wsPort: '',
+    },
   },
-  css: [
-    '~/assets/css/tailwind.css'
-  ],
-  vite: {
-    plugins: [
-      tailwindcss(),
-    ],
-  },
-  modules: [
-    'shadcn-nuxt', 
-    '@pinia/nuxt',
-    '~/modules/core/module',        // Core модуль: auth, notifications, profile
-    '~/modules/dashboard/module', // Dashboard модуль: analytics, reports, widgets
-    '~/modules/certificates/module', // Certificates модуль: certificate management, templates
-    '~/modules/events/module', // Events модуль: event management, calendar
-    '~/modules/integrations/module', // Integrations модуль: third-party service integrations
-    '~/modules/payslips/module',      // Payroll модуль: payroll management
-    '~/modules/news/module',           // News модуль: company news, announcements
-    '~/modules/users/module',          // User management модуль: user profiles, permissions
-
-  ],
-  shadcn: {
-    /**
-     * Prefix for all the imported component
-     */
-    prefix: '',
-    /**
-     * Directory that the component lives in.
-     * @default "./components/ui"
-     */
-    componentDir: './components/ui'
-  }
+  css: ['~/assets/css/tailwind.css'],
+  vite: { plugins: [tailwindcss()] },
+  modules: ['@pinia/nuxt'],
+  nitro: { preset: 'node-server' },
 })

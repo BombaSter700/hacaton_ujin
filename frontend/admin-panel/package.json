@@ -1,5 +1,5 @@
 {
-  "name": "nuxt-app",
+  "name": "programmisto-admin-panel",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,8 +8,7 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "start": "nuxt start",
-    "prepare": "husky",
+    "start": "node .output/server/index.mjs",
     "test": "vitest run"
   },
   "dependencies": {
@@ -49,5 +48,8 @@
   },
   "lint-staged": {
     "src/**/*.{js,ts,vue}": "eslint --fix"
+  },
+  "engines": {
+    "node": ">=24 <25"
   }
 }
