@@ -1,0 +1,4 @@
+team=programmisto
+built=2026-10-31T05:58:44
+issued_at=2026-10-31T02:36:35
+cos_finish=0 (без срока — Р-04)
