@@ -88,7 +88,11 @@ class CommandService:
             payload = {"signal_id": signal.external_signal_id, "value": cmd_in.value}
 
             # Вызов клиента
-            await self.ujin.send_command(device.external_id, payload)
+            await self.ujin.send_command(
+            device_external_id=device.external_id, 
+            signal_name=signal.external_signal_id, 
+            value=cmd_in.value
+            )
 
             # Успешное выполнение
             db_cmd.status = CommandStatus.SUCCESS
