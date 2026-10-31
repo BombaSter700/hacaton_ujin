@@ -39,6 +39,16 @@ class IntegrationServiceSettings(BaseSettings):
     clickhouse_user: str = "default"
     clickhouse_password: str = Field(default="", repr=False) # Скрываем пароль из логов
     clickhouse_db: str = "iot"
+
+    redis_url: str = "redis://redis:6379/0"
+
+    auth_service_url: str = "http://programmisto_auth:8000"
+    
+    # Адрес fleet.json эмуляторов для синхронизации
+    emulator_fleet_url: str = "http://programmisto_emulators:8098/devices"
+
+    command_confirmation_timeout: float = 5.0
+    command_confirmation_poll_interval: float = 0.5
     
     @field_validator("database_url")
     @classmethod
