@@ -23,6 +23,9 @@ const activity = [
       </div>
       <p class="text-sm text-muted-foreground">Сводка по объектам и подключённым устройствам управляющей компании.</p>
     </div>
+
+  <environment/>
+
     <div class="grid gap-4 md:grid-cols-3">
       <Card v-for="stat in stats" :key="stat.name">
         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
