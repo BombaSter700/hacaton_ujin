@@ -33,6 +33,13 @@ class IntegrationServiceSettings(BaseSettings):
     cors_allow_credentials: bool = True
     frontend_url: str = "http://localhost:3000"
 
+
+    clickhouse_host: str = "clickhouse"
+    clickhouse_port: int = Field(default=8123, ge=1, le=65535)
+    clickhouse_user: str = "default"
+    clickhouse_password: str = Field(default="", repr=False) # Скрываем пароль из логов
+    clickhouse_db: str = "iot"
+    
     @field_validator("database_url")
     @classmethod
     def validate_database_url(cls, value):

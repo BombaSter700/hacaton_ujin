@@ -8,3 +8,5 @@ pydantic-settings>=2.1.0,<3
 pyjwt>=2.9.0,<3
 httpx>=0.28.0,<1
 prometheus-fastapi-instrumentator>=7.0,<8
+clickhouse-connect>=0.7.0
+
