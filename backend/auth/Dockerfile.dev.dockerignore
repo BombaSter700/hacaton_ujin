@@ -4,3 +4,5 @@
 !auth/requirements.txt
 !auth/alembic.ini
 !auth/docker-entrypoint.sh
+!auth/migrations
+!auth/migrations/**

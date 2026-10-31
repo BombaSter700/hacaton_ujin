@@ -10,6 +10,8 @@ from app.core.config import settings
 
 def create_database_engine(config):
     url = make_url(config.database_url)
+    if url.drivername == "postgresql":
+        url = url.set(drivername="postgresql+psycopg2")
     options = {"pool_pre_ping": True, "echo": False}
     if url.get_backend_name() == "sqlite":
         options["connect_args"] = {"check_same_thread": False}
