@@ -23,15 +23,12 @@ def get_db():
 
 
 def create_tables():
-    # Import registered models only when explicitly asked to create the schema.
-    from app.models import session, system_settings  # noqa: F401
-    from app.models.user import Base
+    from app.models import Base
 
     Base.metadata.create_all(bind=engine)
 
 
 def drop_tables():
-    from app.models import session, system_settings  # noqa: F401
-    from app.models.user import Base
+    from app.models import Base
 
     Base.metadata.drop_all(bind=engine)

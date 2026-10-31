@@ -70,13 +70,12 @@ def get_current_user(
         .first()
     )
     # Never fall back to another session through the user's refresh token.
-    if session is None or session.requires_reauth:
-        raise InvalidTokenException(
-            "Session expired, revoked or requires re-authentication"
-        )
+    if session is None:
+        raise InvalidTokenException("Session expired or revoked")
     updated = update_session_activity(db, session_token, request)
-    if updated is None or not updated.is_active or updated.requires_reauth:
-        raise InvalidTokenException("Session revoked or requires re-authentication")
+    if updated is None or not updated.is_active:
+        raise InvalidTokenException("Session revoked")
+    request.state.auth_session = updated
     return user
 
 
@@ -85,7 +84,7 @@ def require_any_role(required_roles: list[str]):
 
     def role_checker(user=Depends(get_current_user)):
         # Current database role wins over stale JWT claims.
-        if user.role is None or user.role.name not in allowed:
+        if user.role not in allowed:
             raise InsufficientPermissionsException()
         return user
 

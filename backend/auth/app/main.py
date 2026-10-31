@@ -1,4 +1,4 @@
-"""Auth application. Business routes still require their models and migrations."""
+"""Auth application: users, profiles and login sessions."""
 
 import asyncio
 from contextlib import asynccontextmanager, suppress
@@ -10,7 +10,6 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.api.v1 import api_router
-from app.core.audit import AuditClient
 from app.core.config import settings
 from app.core.database.engine import engine
 from app.core.limiter import limiter
@@ -47,23 +46,8 @@ async def session_cleanup_task():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.audit = AuditClient(settings.audit_service_url, source_service="auth")
     cleanup_task = None
-    publisher = None
     try:
-        if settings.notifications_enabled:
-            from app.services.event_publisher import AuthEventPublisher
-            from app.services.notification_integration import register_auth_service
-            import app.services.event_publisher as publisher_module
-
-            publisher = AuthEventPublisher(settings.rabbitmq_url)
-            await publisher.connect(retries=5, delay=3.0)
-            if not publisher.is_connected:
-                raise RuntimeError("Notification publisher is unavailable")
-            publisher_module.event_publisher = publisher
-            await register_auth_service()
-        else:
-            logger.info("Notification delivery is disabled")
         cleanup_task = asyncio.create_task(session_cleanup_task())
         yield
     finally:
@@ -71,12 +55,7 @@ async def lifespan(app: FastAPI):
             cleanup_task.cancel()
             with suppress(asyncio.CancelledError):
                 await cleanup_task
-        try:
-            if publisher is not None:
-                await publisher.close()
-        finally:
-            await app.state.audit.aclose()
-            engine.dispose()
+        engine.dispose()
 
 
 app = FastAPI(

@@ -28,14 +28,9 @@ class AuthServiceSettings(BaseSettings):
     jwt_secret: str = Field(min_length=32, repr=False)
     jwt_algorithm: Literal["HS256"] = "HS256"
     access_token_expire_minutes: int = Field(default=30, ge=1)
+    refresh_token_expire_days: int = Field(default=7, ge=1)
     cors_origins: list[str] = Field(default_factory=list)
     cors_allow_credentials: bool = True
-    auto_revoke_on_suspicious_activity: bool = True
-    send_security_notifications: bool = False
-    suspicious_activity_threshold: int = Field(default=3, ge=1)
-    notifications_enabled: bool = False
-    rabbitmq_url: str | None = Field(default=None, repr=False)
-    audit_service_url: str | None = None
     frontend_url: str = "http://localhost:3000"
 
     @field_validator("database_url")
@@ -67,8 +62,6 @@ class AuthServiceSettings(BaseSettings):
     def validate_configuration(self):
         if self.cors_allow_credentials and "*" in self.cors_origins:
             raise ValueError("Credentialed CORS requires explicit origins")
-        if self.notifications_enabled and not self.rabbitmq_url:
-            raise ValueError("RABBITMQ_URL is required when notifications are enabled")
         return self
 
 
