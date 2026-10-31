@@ -10,12 +10,13 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from app.core.config import settings
 from app.api.v1 import api_router
 from app.routers import health
-
+from app.core.database.session import create_tables
 logger = logging.getLogger("uvicorn")
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    create_tables()
     """Manage application lifecycle using FastAPI lifespan."""
     print(f"🚀 {settings.app_name} v{settings.app_version} starting up...")
     print("📝 API Documentation: /api/docs")
