@@ -17,9 +17,10 @@ import enum
 
 
 class DeviceStatus(str, enum.Enum):
-    UNKNOWN = "unknown"
     ONLINE = "online"
     OFFLINE = "offline"
+    ERROR = "error"
+    UNKNOWN = "unknown"
 
 
 class Device(Base):
