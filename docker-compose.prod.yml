@@ -1,0 +1,300 @@
+# Standalone VPS stack: use --env-file .env.prod -f docker-compose.prod.yml
+name: programmisto-prod
+services:
+  programmisto_postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ujin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.prod}
+      POSTGRES_DB: ${POSTGRES_DB:-ujin}
+      AUTH_DB_NAME: ${AUTH_DB_NAME:-auth_db}
+      INTEGRATION_DB_NAME: ${INTEGRATION_DB_NAME:-integration_db}
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+    volumes:
+    - postgres_data:/var/lib/postgresql
+    - type: bind
+      source: ./infra/postgres/init-databases.sh
+      target: /docker-entrypoint-initdb.d/init-databases.sh
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ./infra/postgres/pg_hba.conf
+      target: /etc/postgresql/pg_hba.conf
+      read_only: true
+      bind:
+        create_host_path: false
+    command:
+    - postgres
+    - -c
+    - hba_file=/etc/postgresql/pg_hba.conf
+    networks:
+    - app-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U ${POSTGRES_USER:-ujin} -d ${POSTGRES_DB:-ujin}
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+  programmisto_redis:
+    image: redis:7-alpine
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env.prod}
+    command:
+    - sh
+    - -ec
+    - exec redis-server --requirepass "$$REDIS_PASSWORD" --appendonly yes --appendfsync everysec --maxmemory 128mb --maxmemory-policy
+      noeviction
+    volumes:
+    - redis_data:/data
+    networks:
+    - app-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -qx PONG
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+  programmisto_clickhouse:
+    image: clickhouse/clickhouse-server:25.3
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-ujin}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?Set CLICKHOUSE_PASSWORD in .env.prod}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-iot}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: '1'
+    volumes:
+    - clickhouse_data:/var/lib/clickhouse
+    - clickhouse_logs:/var/log/clickhouse-server
+    - type: bind
+      source: ./infra/clickhouse/init-databases.sh
+      target: /docker-entrypoint-initdb.d/init-databases.sh
+      read_only: true
+      bind:
+        create_host_path: false
+    networks:
+    - app-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - clickhouse-client --user "$$CLICKHOUSE_USER" --password "$$CLICKHOUSE_PASSWORD" --database "$$CLICKHOUSE_DB" --query
+        "SELECT count() FROM telemetry WHERE 0" >/dev/null
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+  programmisto_auth:
+    build:
+      context: ./backend
+      dockerfile: auth/Dockerfile
+    image: ghcr.io/programmisto/programmisto_auth:prod
+    ports:
+    - 127.0.0.1:${AUTH_PORT:-8001}:8000
+    environment:
+      DATABASE_URL: ${AUTH_DATABASE_URL:?Set AUTH_DATABASE_URL in .env.prod}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.prod}
+      DEBUG: ${AUTH_DEBUG:-false}
+      CORS_ORIGINS: ${CORS_ORIGINS:-[]}
+    depends_on:
+      programmisto_postgres:
+        condition: service_healthy
+    networks:
+    - app-network
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    pull_policy: build
+  programmisto_integration:
+    build:
+      context: ./backend
+      dockerfile: integration/Dockerfile
+    image: ghcr.io/programmisto/programmisto_integration:prod
+    ports:
+    - 127.0.0.1:${INTEGRATION_PORT:-8002}:8000
+    environment:
+      DATABASE_URL: ${INTEGRATION_DATABASE_URL:?Set INTEGRATION_DATABASE_URL in .env.prod}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.prod}
+      DEBUG: ${INTEGRATION_DEBUG:-false}
+      CORS_ORIGINS: ${CORS_ORIGINS:-[]}
+    depends_on:
+      programmisto_postgres:
+        condition: service_healthy
+    networks:
+    - app-network
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    pull_policy: build
+  programmisto_emulators:
+    image: ghcr.io/programmisto/programmisto_emulators:prod
+    build:
+      context: ./backend/emulators
+      dockerfile: Dockerfile
+    command:
+    - --interval
+    - ${EMULATOR_INTERVAL:-1}
+    ports:
+    - 127.0.0.1:8098-8107:8098-8107
+    networks:
+    - app-network
+    read_only: true
+    tmpfs:
+    - /tmp:size=16m,mode=1777
+    init: true
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '1.0'
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import json, urllib.request; r = urllib.request.urlopen('http://127.0.0.1:8098/health', timeout=5); data = json.load(r);
+        assert data['status'] == 'healthy' and len(data['devices']) > 0
+      interval: 10s
+      timeout: 8s
+      retries: 5
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    pull_policy: build
+  programmisto_krakend:
+    image: krakend:2.13.11
+    environment:
+      FC_ENABLE: '1'
+      FC_TEMPLATES: /etc/krakend/templates
+      AUTH_SERVICE_URL: http://programmisto_auth:8000
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-[]}
+    ports:
+    - 127.0.0.1:${KRAKEND_PORT:-8080}:8080
+    restart: unless-stopped
+    volumes:
+    - type: bind
+      source: ./infra/krakend/krakend.tmpl
+      target: /etc/krakend/krakend.tmpl
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ./infra/krakend/templates
+      target: /etc/krakend/templates
+      read_only: true
+      bind:
+        create_host_path: false
+    command:
+    - run
+    - -c
+    - /etc/krakend/krakend.tmpl
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - -q
+      - -O
+      - /dev/null
+      - http://127.0.0.1:8080/__health
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    networks:
+    - app-network
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    depends_on:
+      programmisto_auth:
+        condition: service_healthy
+volumes:
+  postgres_data: null
+  redis_data: null
+  clickhouse_data: null
+  clickhouse_logs: null
+networks:
+  app-network:
+    driver: bridge

@@ -363,3 +363,7 @@ scripts/generate_clickhouse_audit_mocks.py
 
 # Build context for the local emulator container
 !backend/emulators/.dockerignore
+
+# VPS configuration templates
+!.env.prod.example
+!backend/auth/alembic.ini
