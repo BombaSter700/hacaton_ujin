@@ -228,8 +228,15 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-ujin}:${POSTGRES_PASSWORD:-local-dev-password}@programmisto_postgres:5432/${INTEGRATION_DB_NAME:-integration_db}
       JWT_SECRET: ${JWT_SECRET:-local-development-only-change-me-please}
       DEBUG: "true"
+      CLICKHOUSE_HOST: programmisto_clickhouse
+      CLICKHOUSE_PORT: "8123"
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-ujin}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-local-clickhouse-password}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-iot}
     depends_on:
       programmisto_postgres:
+        condition: service_healthy
+      programmisto_clickhouse:
         condition: service_healthy
     networks:
       - app-network

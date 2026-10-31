@@ -170,8 +170,15 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.prod}
       DEBUG: ${INTEGRATION_DEBUG:-false}
       CORS_ORIGINS: ${CORS_ORIGINS:-[]}
+      CLICKHOUSE_HOST: programmisto_clickhouse
+      CLICKHOUSE_PORT: "8123"
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-ujin}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?Set CLICKHOUSE_PASSWORD in .env.prod}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-iot}
     depends_on:
       programmisto_postgres:
+        condition: service_healthy
+      programmisto_clickhouse:
         condition: service_healthy
     networks:
     - app-network

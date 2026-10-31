@@ -48,7 +48,7 @@ app = FastAPI(
 # CORS is handled by KrakenD gateway, no need to set it here
 
 # Include routers
-app.include_router(health.router, tags=["health"])
+app.include_router(health.router, prefix="/health", tags=["health"])
 app.include_router(api_router, prefix="/api/v1")
 
 # Prometheus metrics
