@@ -60,10 +60,10 @@ services:
     build:
       context: ./backend
       dockerfile: auth/Dockerfile.dev
-    image: ghcr.io/praweb-union/praweb_auth:latest
+    image: ghcr.io/programmisto/programmisto_auth:latest
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-ujin}:${POSTGRES_PASSWORD:-local-dev-password}@programmisto_postgres:5432/${AUTH_DB_NAME:-auth_db}
-      JWT_SECRET: ${JWT_SECRET:-local-development-only-change-me}
+      JWT_SECRET: ${JWT_SECRET:-local-development-only-change-me-please}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3001}
       DEBUG: "true"
     depends_on:
@@ -77,7 +77,12 @@ services:
       - ./backend/auth/migrations:/app/migrations
       - ./backend/auth/tests:/app/tests
       - ./backend/auth/pytest.ini:/app/pytest.ini
-      - ./backend/shared:/app/shared
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     restart: unless-stopped
     deploy:
       resources:
@@ -89,7 +94,7 @@ services:
     build:
       context: ./frontend/admin-panel
       dockerfile: Dockerfile
-    image: ghcr.io/praweb-union/praweb_admin_panel:latest
+    image: ghcr.io/programmisto/programmisto_admin_panel:latest
     ports:
       - "${ADMIN_PANEL_PORT:-3000}:3000"
     environment:
@@ -166,6 +171,7 @@ services:
       start_period: 30s
 
   programmisto_emulators:
+    image: ghcr.io/programmisto/programmisto_emulators:latest
     build:
       context: ./backend/emulators
       dockerfile: Dockerfile
@@ -196,7 +202,7 @@ services:
     build:
       context: ./backend
       dockerfile: integration/Dockerfile.dev
-    image: ghcr.io/praweb-union/praweb_integration:latest
+    image: ghcr.io/programmisto/programmisto_integration:latest
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-ujin}:${POSTGRES_PASSWORD:-local-dev-password}@programmisto_postgres:5432/${INTEGRATION_DB_NAME:-integration_db}
       NOTIFICATIONS_SERVICE_URL: ${NOTIFICATIONS_SERVICE_URL:-}
