@@ -9,10 +9,6 @@ RUN apt-get update && apt-get install -y wget && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 
-# Install shared dependencies
-COPY shared/requirements.txt ./shared/requirements.txt
-RUN pip install --no-cache-dir -r shared/requirements.txt
-
 # Copy service requirements and install dependencies
 COPY auth/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

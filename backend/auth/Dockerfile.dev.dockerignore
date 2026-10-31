@@ -1,7 +1,5 @@
 # Minimal context for auth/Dockerfile.dev
 **
-!shared
-!shared/**
 !auth
 !auth/requirements.txt
 !auth/alembic.ini

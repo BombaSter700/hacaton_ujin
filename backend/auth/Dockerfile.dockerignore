@@ -1,7 +1,5 @@
 # Minimal context for auth/Dockerfile
 **
-!shared
-!shared/**
 !auth
 !auth/requirements.txt
 !auth/app
