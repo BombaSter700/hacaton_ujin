@@ -10,11 +10,18 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.core.config import settings
 from app.core.exceptions.integration_exceptions import IntegrationAuthException
 from core.auth.jwt import JWTValidator
+import enum
 
 
 security = HTTPBearer(auto_error=False)
 
 
+class UserRole(str, enum.Enum):
+    ADMIN = "admin"       # Администратор УК (видит всё)
+    CLIENT = "client"     # Жилец / Клиент (видит только свои объекты)
+    GUEST = "guest"       # Гость (только чтение, без отправки команд)
+
+    
 def get_user_from_jwt(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> Dict[str, Any]:
@@ -22,7 +29,7 @@ def get_user_from_jwt(
 
     if not credentials:
         raise IntegrationAuthException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=status.HTTP_401_UNAUTHORIZED,   
             detail="Not authenticated (no token provided)",
         )
 
