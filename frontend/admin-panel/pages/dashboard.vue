@@ -4,9 +4,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 const stats = [
-  { name: 'Всего объектов', count: 12, icon: Building2, detail: 'Объекты под управлением', tone: 'text-primary' },
-  { name: 'Устройства в сети', count: 84, icon: Wifi, detail: 'Доступны для мониторинга', tone: 'text-emerald-600' },
-  { name: 'Требуют внимания', count: 3, icon: CircleAlert, detail: 'Отключены или есть ошибки', tone: 'text-destructive' },
+  {
+    name: 'Всего объектов',
+    count: 12,
+    iconName: 'smart-home',
+    detail: 'Объекты под управлением',
+  },
+  {
+    name: 'Устройства в сети',
+    count: 84,
+    iconName: 'sensors',
+    detail: 'Доступны для мониторинга',
+  },
+  {
+    name: 'Требуют внимания',
+    count: 3,
+    iconName: 'telemetry',
+    detail: 'Отключены или есть ошибки',
+  },
 ]
 const activity = [
   { name: 'Датчик температуры', object: 'ЖК Северный · Корпус 1', status: 'В сети', ok: true },
@@ -30,7 +45,7 @@ const activity = [
       <Card v-for="stat in stats" :key="stat.name">
         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle class="text-sm font-medium">{{ stat.name }}
-          </CardTitle><component :is="stat.icon" :class="['size-5', stat.tone]" />
+          </CardTitle><SmartIcon :name="stat.iconName":size="70"/>
         </CardHeader>
         <CardContent>
           <div class="text-3xl font-bold">{{ stat.count }}
