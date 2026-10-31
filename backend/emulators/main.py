@@ -16,7 +16,7 @@ import json
 import os
 import time
 
-from backend.emulators.devices import REGISTRY
+from devices import REGISTRY
 from backend.emulators.core import CommandServer
 from backend.emulators.ujin_client import UjinClient
 
