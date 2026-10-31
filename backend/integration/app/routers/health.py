@@ -24,6 +24,7 @@ async def ready():
                 "signals",
                 "command_logs",
                 "device_event_logs",
+                "scenarios",
             ):
                 connection.execute(text(f"SELECT 1 FROM {table} WHERE false"))
     except SQLAlchemyError:

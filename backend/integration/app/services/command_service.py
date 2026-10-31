@@ -13,6 +13,7 @@ from app.api.v1.schemas.command import CommandRequest, CommandResponse
 from app.integrations.emulator.client import EmulatorAdapter
 from app.services.analytics import analytics
 from app.core.config import settings
+from app.services.scenario_validation import validate_value
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,11 @@ class CommandService:
 
         if not signal.is_writable:
             raise HTTPException(status_code=400, detail="This signal is read-only")
+
+        try:
+            validate_value(signal, cmd_in.value)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from None
 
         if isinstance(cmd_in.value, (int, float)):
             if signal.min_value is not None and cmd_in.value < signal.min_value:

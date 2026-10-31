@@ -213,3 +213,145 @@
     "encoding": "no-op"
   }]
 }
+,
+{
+  "endpoint": "/api/v1/devices/{device_id}/definition",
+  "method": "PUT",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "INTEGRATION_SERVICE_URL" | default "http://programmisto_integration:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/devices/{device_id}/definition",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/v1/scenarios/",
+  "method": "GET",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "INTEGRATION_SERVICE_URL" | default "http://programmisto_integration:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/scenarios/",
+      "encoding": "no-op"
+    }
+  ],
+  "input_query_strings": [
+    "object_id",
+    "skip",
+    "limit"
+  ]
+},
+{
+  "endpoint": "/api/v1/scenarios/",
+  "method": "POST",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "INTEGRATION_SERVICE_URL" | default "http://programmisto_integration:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/scenarios/",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/v1/scenarios/{scenario_id}",
+  "method": "GET",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "INTEGRATION_SERVICE_URL" | default "http://programmisto_integration:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/scenarios/{scenario_id}",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/v1/scenarios/{scenario_id}",
+  "method": "PUT",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "INTEGRATION_SERVICE_URL" | default "http://programmisto_integration:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/scenarios/{scenario_id}",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/v1/scenarios/{scenario_id}",
+  "method": "PATCH",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "INTEGRATION_SERVICE_URL" | default "http://programmisto_integration:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/scenarios/{scenario_id}",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/v1/scenarios/{scenario_id}",
+  "method": "DELETE",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "INTEGRATION_SERVICE_URL" | default "http://programmisto_integration:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/scenarios/{scenario_id}",
+      "encoding": "no-op"
+    }
+  ],
+  "input_query_strings": [
+    "expected_revision"
+  ]
+}

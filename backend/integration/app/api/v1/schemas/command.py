@@ -1,14 +1,16 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
+from .scenario import SignalValue
 from typing import Optional, Union
 from uuid import UUID
 from datetime import datetime
 
 
 class CommandRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
     signal_id: UUID = Field(
         ..., description="ID сигнала (из таблицы signals), на который шлем команду"
     )
-    value: Union[float, str, bool] = Field(
+    value: SignalValue = Field(
         ..., description="Новое значение (например, 25.5, 'ON', True)"
     )
     idempotency_key: Optional[str] = Field(

@@ -9,6 +9,10 @@ from app.core.dependencies.integration import get_user_info
 from app.core.dependencies.crud import device as crud_device
 from app.api.v1.schemas.device import DeviceResponse
 from app.models.device import Device
+from app.models.scenario import Scenario
+from app.api.v1.schemas.device_definition import DeviceDefinition
+from app.api.v1.schemas.scenario import ScenarioCreate
+from app.services.scenario_validation import validate_definition
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/devices", tags=["devices"])
@@ -73,3 +77,32 @@ def update_device_metadata(
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
     return crud_device.update(db=db, db_obj=device, obj_in=device_in)
+
+
+@router.put("/{device_id}/definition", response_model=DeviceResponse)
+def update_device_definition(device_id: UUID, payload: DeviceDefinition, db: Session = Depends(get_db), user: dict = Depends(get_user_info)):
+    device = db.query(Device).filter(Device.id == device_id).with_for_update().first()
+    if not device:
+        raise HTTPException(404, "Device not found")
+    signals = {signal.id: signal for signal in device.signals}
+    if set(signals) != {signal.id for signal in payload.signals}:
+        raise HTTPException(422, "Provide exactly the existing device signals; import new capabilities from the device")
+    for definition in payload.signals:
+        signal = signals[definition.id]
+        if definition.is_writable and not signal.source_is_writable:
+            raise HTTPException(422, f"{signal.name}: device does not support writing this signal")
+        for key, value in definition.model_dump(exclude={"id"}).items():
+            setattr(signal, key, value)
+        signal.is_customized = True
+    device.name = payload.name
+    # Do not silently invalidate enabled saved rules when changing signal types/ranges.
+    for scenario in db.query(Scenario).filter_by(object_id=device.object_id, enabled=True).all():
+        if any(item.get("device_id") == str(device.id) for item in scenario.conditions + scenario.actions):
+            try:
+                validate_definition(db, ScenarioCreate.model_validate(scenario, from_attributes=True))
+            except HTTPException as exc:
+                db.rollback()
+                raise HTTPException(409, f"Disable or edit scenario '{scenario.name}' first: {exc.detail}") from None
+    db.commit()
+    db.refresh(device)
+    return device

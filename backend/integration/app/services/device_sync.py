@@ -22,6 +22,9 @@ async def sync_emulators(db: Session, integration: Integration, object_id):
             response = await client.get(base_url + "/declaration")
             response.raise_for_status()
             declarations = response.json()
+            response = await client.get(base_url + "/state")
+            response.raise_for_status()
+            state = response.json()
             device = db.query(Device).filter_by(integration_id=integration.id, external_id=item["serial"]).first()
             if not device:
                 device = Device(integration_id=integration.id, external_id=item["serial"],
@@ -36,12 +39,20 @@ async def sync_emulators(db: Session, integration: Integration, object_id):
                 if not signal:
                     signal = Signal(device_id=device.id, external_signal_id=data["name"])
                     db.add(signal)
+                signal.source_is_writable = data.get("management") in ("rw", "w")
+                if signal.is_customized:
+                    # Keep user descriptions across repeated imports, but never grant unsupported commands.
+                    if not signal.source_is_writable:
+                        signal.is_writable = False
+                    continue
                 signal.name = data.get("title", data["name"])
                 signal.signal_type = data.get("control", "text")
                 signal.unit = data.get("measure")
                 signal.is_writable = data.get("management") in ("rw", "w")
                 signal.min_value = data.get("min")
                 signal.max_value = data.get("max")
+                value = state.get(data["name"])
+                signal.value_type = "boolean" if type(value) is bool else "number" if type(value) in (int, float) else "string"
             count += 1
         integration.last_sync_at = datetime.now(timezone.utc)
         db.commit()

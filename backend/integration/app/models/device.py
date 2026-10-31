@@ -88,5 +88,8 @@ class Signal(Base):
     # Для валидации входящих команд
     min_value = Column(Float, nullable=True)
     max_value = Column(Float, nullable=True)
+    value_type = Column(String(10), nullable=False, default="string")
+    source_is_writable = Column(Boolean, nullable=False, default=False)
+    is_customized = Column(Boolean, nullable=False, default=False)
 
     device = relationship("Device", back_populates="signals")

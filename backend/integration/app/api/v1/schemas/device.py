@@ -14,6 +14,9 @@ class SignalResponse(BaseModel):
     is_writable: bool
     min_value: Optional[float]
     max_value: Optional[float]
+    value_type: str
+    source_is_writable: bool
+    is_customized: bool
 
     model_config = ConfigDict(from_attributes=True)
 

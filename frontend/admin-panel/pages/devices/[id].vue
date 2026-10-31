@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { getDevice, getDeviceState, getDeviceHistory, sendCommand } from '~/utils/api/integration'
 import type { Device, DeviceState, Signal, TelemetryPoint } from '~/types/integration'
+import DeviceDefinitionEditor from '~/components/DeviceDefinitionEditor.vue'
+import { parseSignalValue } from '~/utils/signal-values'
 import { useAuthStore } from '~/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
@@ -62,16 +64,9 @@ async function command(signal: Signal) {
   commandError.value = ''; commandMessage.value = ''
   const raw = drafts[signal.id]?.trim()
   if (!raw) { commandError.value = 'Введите значение команды'; return }
-  let value: string | number | boolean = raw
-  const current = state.value?.signals[signal.external_signal_id]
-  if (typeof current === 'boolean') {
-    if (!['true', 'false', '1', '0'].includes(raw.toLowerCase())) { commandError.value = 'Введите true или false'; return }
-    value = ['true', '1'].includes(raw.toLowerCase())
-  } else if (typeof current === 'number' || signal.min_value !== null || signal.max_value !== null || signal.signal_type === 'range') {
-    value = Number(raw)
-    if (!Number.isFinite(value)) { commandError.value = 'Введите число'; return }
-    if ((signal.min_value !== null && value < signal.min_value) || (signal.max_value !== null && value > signal.max_value)) { commandError.value = 'Значение вне допустимого диапазона'; return }
-  }
+  let value: string | number | boolean
+  try { value = parseSignalValue(signal, raw) }
+  catch (cause) { commandError.value = message(cause); return }
   sending.value = true
   const version = generation
   try {
@@ -100,6 +95,7 @@ onBeforeUnmount(() => { generation++; if (timer) clearInterval(timer) })
     <p v-if="loading" role="status">Загрузка…</p>
     <p v-if="error" role="alert" class="text-destructive">{{ error }}</p>
     <template v-if="device">
+      <DeviceDefinitionEditor :key="device.id" :device="device" @saved="device = $event" />
       <Card><CardHeader><CardTitle>{{ device.name }}</CardTitle></CardHeader><CardContent class="space-y-2">
         <p>{{ device.device_type }} · {{ device.external_id }}</p>
         <p>Статус: {{ state?.status || device.status }} · Качество данных: {{ state?.quality || 'unknown' }}</p>

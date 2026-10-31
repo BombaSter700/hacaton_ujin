@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Building2, Cpu, House, LayoutDashboard, Users, Plug, X } from 'lucide-vue-next'
+import { Building2, Cpu, House, LayoutDashboard, Users, Plug, Workflow, X } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '~/stores/auth'
 
@@ -12,9 +12,10 @@ const links = [
   { to: '/objects', label: 'Объекты', icon: Building2 },
   { to: '/devices', label: 'Устройства', icon: Cpu },
   { to: '/integrations', label: 'Подключения', icon: Plug },
+  { to: '/scenarios', label: 'Сценарии', icon: Workflow },
   { to: '/users', label: 'Пользователи', icon: Users },
 ]
-const visibleLinks = computed(() => links.filter(link => !['/users', '/devices', '/integrations'].includes(link.to) || auth.user?.role === 'admin'))
+const visibleLinks = computed(() => links.filter(link => !['/users', '/devices', '/integrations', '/scenarios'].includes(link.to) || auth.user?.role === 'admin'))
 </script>
 
 <template>

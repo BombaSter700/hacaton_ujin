@@ -17,7 +17,13 @@ export interface Integration {
 export interface Signal {
   id: UUID; external_signal_id: string; name: string; signal_type: string
   unit: string | null; is_writable: boolean; min_value: number | null; max_value: number | null
+  value_type: 'number' | 'string' | 'boolean'; source_is_writable: boolean; is_customized: boolean
 }
+export interface SignalDefinition {
+  id: UUID; name: string; value_type: Signal['value_type']; unit: string | null
+  is_writable: boolean; min_value: number | null; max_value: number | null
+}
+export interface DeviceDefinition { name: string; signals: SignalDefinition[] }
 export interface Device {
   id: UUID; integration_id: UUID; external_id: string; object_id: UUID; room_id: UUID | null
   name: string; device_type: string; is_active: boolean; status: DeviceStatus
