@@ -216,11 +216,12 @@ services:
       context: ./backend
       dockerfile: integration/Dockerfile.dev
     image: ghcr.io/programmisto/programmisto_integration:latest
+    ports:
+      - "127.0.0.1:${INTEGRATION_PORT:-8002}:8000"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-ujin}:${POSTGRES_PASSWORD:-local-dev-password}@programmisto_postgres:5432/${INTEGRATION_DB_NAME:-integration_db}
-      NOTIFICATIONS_SERVICE_URL: ${NOTIFICATIONS_SERVICE_URL:-}
-      FILE_SERVICE_URL: ${FILE_SERVICE_URL:-}
-      JWT_SECRET: ${JWT_SECRET:-local-development-only-change-me}
+      JWT_SECRET: ${JWT_SECRET:-local-development-only-change-me-please}
+      DEBUG: "true"
     depends_on:
       programmisto_postgres:
         condition: service_healthy
@@ -230,7 +231,12 @@ services:
       - ./logs:/logs
       - ./backend/integration/app:/app/app
       - ./backend/integration/migrations:/app/migrations
-      - ./backend/shared:/app/shared
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     restart: unless-stopped
     deploy:
       resources:

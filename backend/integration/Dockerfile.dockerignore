@@ -1,7 +1,5 @@
 # Minimal context for integration/Dockerfile
 **
-!shared
-!shared/**
 !integration
 !integration/requirements.txt
 !integration/app
