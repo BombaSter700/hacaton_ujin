@@ -9,16 +9,28 @@ from app.core.config import settings
 from app.api.v1 import api_router
 from app.routers import health
 from app.core.database.session import create_tables
+from app.services.analytics import analytics
 logger = logging.getLogger("uvicorn")
+logging.basicConfig(level=logging.INFO)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    logger.info("⏳ Initializing database tables...")
     create_tables()
-    """Manage application lifecycle using FastAPI lifespan."""
-    print(f"🚀 {settings.app_name} v{settings.app_version} starting up...")
-    print("📝 API Documentation: /api/docs")
-    print("🏥 Health Check: /health")
+    logger.info("⏳ Initializing ClickHouse analytics...")
+    analytics.connect()
+    await analytics.start()
 
+    logger.info(f"🚀 {settings.app_name} v{settings.app_version} starting up...")
+    logger.info("📝 API Documentation: /api/docs")
+    logger.info("🏥 Health Check: /health")
+
+    try:
+        yield
+    finally:
+        logger.info(f"🛑 {settings.app_name} shutting down...")
+        await analytics.stop()
+        logger.info("✅ Shutdown complete.")
 
    
 # Create FastAPI app
