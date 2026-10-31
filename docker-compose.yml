@@ -1,0 +1,230 @@
+services:
+  programmisto_postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ujin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-password}
+      POSTGRES_DB: ${POSTGRES_DB:-ujin}
+      AUTH_DB_NAME: ${AUTH_DB_NAME:-auth_db}
+      INTEGRATION_DB_NAME: ${INTEGRATION_DB_NAME:-integration_db}
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./infra/postgres/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
+      - ./infra/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    command: ["postgres", "-c", "hba_file=/etc/postgresql/pg_hba.conf"]
+    networks:
+      - app-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ujin} -d ${POSTGRES_DB:-ujin}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  programmisto_krakend:
+    image: krakend:2.13.11
+    ports:
+      - "127.0.0.1:${KRAKEND_PORT:-8080}:8080"
+    restart: always
+    volumes:
+      - type: bind
+        source: ./infra/krakend/krakend.json
+        target: /etc/krakend/krakend.json
+        read_only: true
+        bind:
+          create_host_path: false
+    command: ['run', '-c', '/etc/krakend/krakend.json']
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/__health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    networks:
+      - app-network
+
+  programmisto_auth:
+    profiles: [backend]
+    build:
+      context: ./backend
+      dockerfile: auth/Dockerfile.dev
+    image: ghcr.io/praweb-union/praweb_auth:latest
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ujin}:${POSTGRES_PASSWORD:-local-dev-password}@programmisto_postgres:5432/${AUTH_DB_NAME:-auth_db}
+      JWT_SECRET: ${JWT_SECRET:-local-development-only-change-me}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3001}
+      DEBUG: "true"
+    depends_on:
+      programmisto_postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    volumes:
+      - ./logs:/logs
+      - ./backend/auth/app:/app/app
+      - ./backend/auth/migrations:/app/migrations
+      - ./backend/auth/tests:/app/tests
+      - ./backend/auth/pytest.ini:/app/pytest.ini
+      - ./backend/shared:/app/shared
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+  programmisto_admin_panel:
+    profiles: [frontend]
+    build:
+      context: ./frontend/admin-panel
+      dockerfile: Dockerfile
+    image: ghcr.io/praweb-union/praweb_admin_panel:latest
+    ports:
+      - "${ADMIN_PANEL_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      API_URL: ${FRONTEND_API_URL:-http://localhost:8080}
+      NUXT_PUBLIC_API_URL: ${FRONTEND_API_URL:-http://localhost:8080}
+    depends_on:
+      programmisto_krakend:
+        condition: service_started
+    networks:
+      - app-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+  programmisto_redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-local-redis-password}
+    command:
+      - sh
+      - -ec
+      - 'exec redis-server --requirepass "$$REDIS_PASSWORD" --appendonly yes --appendfsync everysec --maxmemory 128mb --maxmemory-policy noeviction'
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD-SHELL", 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -qx PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  programmisto_clickhouse:
+    image: clickhouse/clickhouse-server:25.3
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-ujin}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-local-clickhouse-password}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-iot}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse_logs:/var/log/clickhouse-server
+      - type: bind
+        source: ./infra/clickhouse/init-databases.sh
+        target: /docker-entrypoint-initdb.d/init-databases.sh
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      - app-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+    healthcheck:
+      test: ["CMD-SHELL", 'clickhouse-client --user "$$CLICKHOUSE_USER" --password "$$CLICKHOUSE_PASSWORD" --database "$$CLICKHOUSE_DB" --query "SELECT count() FROM telemetry WHERE 0" >/dev/null']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  programmisto_emulators:
+    build:
+      context: ./backend/emulators
+      dockerfile: Dockerfile
+    command: ["--interval", "${EMULATOR_INTERVAL:-1}"]
+    ports:
+      - "127.0.0.1:8098-8107:8098-8107"
+    networks:
+      - app-network
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    init: true
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '1.0'
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json, urllib.request; r = urllib.request.urlopen('http://127.0.0.1:8098/health', timeout=5); data = json.load(r); assert data['status'] == 'healthy' and len(data['devices']) > 0"]
+      interval: 10s
+      timeout: 8s
+      retries: 5
+      start_period: 15s
+
+  programmisto_integration:
+    profiles: [backend]
+    build:
+      context: ./backend
+      dockerfile: integration/Dockerfile.dev
+    image: ghcr.io/praweb-union/praweb_integration:latest
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ujin}:${POSTGRES_PASSWORD:-local-dev-password}@programmisto_postgres:5432/${INTEGRATION_DB_NAME:-integration_db}
+      NOTIFICATIONS_SERVICE_URL: ${NOTIFICATIONS_SERVICE_URL:-}
+      FILE_SERVICE_URL: ${FILE_SERVICE_URL:-}
+      JWT_SECRET: ${JWT_SECRET:-local-development-only-change-me}
+    depends_on:
+      programmisto_postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    volumes:
+      - ./logs:/logs
+      - ./backend/integration/app:/app/app
+      - ./backend/integration/migrations:/app/migrations
+      - ./backend/shared:/app/shared
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+
+volumes:
+  postgres_data:
+  redis_data:
+  clickhouse_data:
+  clickhouse_logs:
+
+networks:
+  app-network:
+    driver: bridge

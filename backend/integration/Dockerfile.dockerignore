@@ -1,0 +1,12 @@
+# Minimal context for integration/Dockerfile
+**
+!shared
+!shared/**
+!integration
+!integration/requirements.txt
+!integration/app
+!integration/app/**
+!integration/alembic.ini
+!integration/migrations
+!integration/migrations/**
+!integration/docker-entrypoint.sh

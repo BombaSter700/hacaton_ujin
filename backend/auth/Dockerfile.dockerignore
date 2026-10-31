@@ -1,0 +1,12 @@
+# Minimal context for auth/Dockerfile
+**
+!shared
+!shared/**
+!auth
+!auth/requirements.txt
+!auth/app
+!auth/app/**
+!auth/alembic.ini
+!auth/migrations
+!auth/migrations/**
+!auth/docker-entrypoint.sh
