@@ -10,6 +10,10 @@ from app.api.v1 import api_router
 from app.routers import health
 from app.core.database.session import create_tables
 from app.services.analytics import analytics
+from app.services.state_repo import state_repo
+from app.services.telemetry_poller import start_poller
+import asyncio
+
 logger = logging.getLogger("uvicorn")
 logging.basicConfig(level=logging.INFO)
 
@@ -20,6 +24,9 @@ async def lifespan(_: FastAPI):
     logger.info("⏳ Initializing ClickHouse analytics...")
     analytics.connect()
     await analytics.start()
+
+    await state_repo.connect()
+    poller_task = asyncio.create_task(start_poller())
 
     logger.info(f"🚀 {settings.app_name} v{settings.app_version} starting up...")
     logger.info("📝 API Documentation: /api/docs")

@@ -1,27 +1,16 @@
-"""Authentication dependencies for Integration service."""
-
 from typing import Any, Dict, List, Optional
-from fastapi import Depends, Header, status
+from fastapi import Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import httpx
 from app.core.config import settings
 from app.core.exceptions.integration_exceptions import IntegrationAuthException
-from app.core.auth.jwt import JWTValidator
-import enum
-
 
 security = HTTPBearer(auto_error=False)
 
 
-class UserRole(str, enum.Enum):
-    ADMIN = "admin"  # Администратор УК (видит всё)
-    CLIENT = "client"  # Жилец / Клиент (видит только свои объекты)
-    GUEST = "guest"  # Гость (только чтение, без отправки команд)
-
-
-def get_user_from_jwt(
+async def get_user_from_auth(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> Dict[str, Any]:
-    """Extract user info from JWT token (optional, gateway-friendly)."""
 
     if not credentials:
         raise IntegrationAuthException(
@@ -30,55 +19,44 @@ def get_user_from_jwt(
         )
 
     try:
-        validator = JWTValidator(settings)
-        payload = validator.decode_token(credentials.credentials)
-
-        return {
-            "user_id": payload.get("sub"),
-            "role": payload.get("role", "guest"),
-        }
-
-    except Exception:
+        # Делаем запрос к сервису авторизации
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            response = await client.get(
+                f"{settings.auth_service_url}/api/v1/auth/me",
+                headers={"Authorization": f"Bearer {credentials.credentials}"}
+            )
+            if response.status_code == 401:
+                raise IntegrationAuthException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, 
+                    detail="Invalid or expired token"
+                )
+            
+            if response.status_code != 200:
+                raise IntegrationAuthException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Auth service is unavailable or returned an error"
+                )
+            
+            data = response.json()
+            
+            return {
+                "user_id": data.get("id"), 
+                "role": data.get("role", "client"),
+                "is_active": data.get("is_active", False)
+            }
+            
+    except httpx.RequestError:
         raise IntegrationAuthException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid JWT token",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Auth service connection error"
         )
 
 
-def get_user_info(
-    x_auth_id: Optional[str] = Header(None, alias="x-auth-id"),
-    x_auth_role: Optional[str] = Header(None, alias="x-auth-role"),
-    authorization: Optional[str] = Header(None),
-) -> Dict[str, Any]:
-    """Extract user info from KrakenD headers with optional JWT decoding."""
 
-    if not x_auth_id:
-        raise IntegrationAuthException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated (missing x-auth-id header)",
-        )
-
-    session_token = None
-
-    if authorization and authorization.startswith("Bearer "):
-        try:
-            token = authorization.split(" ")[1]
-            validator = JWTValidator(settings)
-            payload = validator.decode_token(token)
-            session_token = payload.get("session_token")
-        except Exception:
-            pass
-
-    return {
-        "user_id": x_auth_id,
-        "role": x_auth_role or "guest",
-        "session_token": session_token,
-    }
+get_user_info = get_user_from_auth
 
 
 def require_role(required_role: str):
-    """Require specific role."""
-
     def checker(user_info: Dict[str, Any] = Depends(get_user_info)) -> Dict[str, Any]:
         if user_info.get("role") != required_role:
             raise IntegrationAuthException(
@@ -86,13 +64,10 @@ def require_role(required_role: str):
                 detail=f"Access denied. Required role: {required_role}",
             )
         return user_info
-
     return checker
 
 
 def require_any_role(required_roles: List[str]):
-    """Require one of allowed roles."""
-
     def checker(user_info: Dict[str, Any] = Depends(get_user_info)) -> Dict[str, Any]:
         if user_info.get("role") not in required_roles:
             raise IntegrationAuthException(
@@ -100,17 +75,14 @@ def require_any_role(required_roles: List[str]):
                 detail=f"Access denied. Required roles: {', '.join(required_roles)}",
             )
         return user_info
-
     return checker
 
 
 def require_admin(user_info: Dict[str, Any] = Depends(get_user_info)) -> Dict[str, Any]:
-    """Require admin role."""
     return require_role("admin")(user_info)
 
 
 def require_client_or_admin(
     user_info: Dict[str, Any] = Depends(get_user_info),
 ) -> Dict[str, Any]:
-    """Require client or admin role."""
     return require_any_role(["client", "admin"])(user_info)
