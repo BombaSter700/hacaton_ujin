@@ -44,6 +44,8 @@ jobs:
           ruff check backend/auth/app backend/emulators scripts --select E9,F63,F7,F82 --output-format=github
       - name: Validate Bake files
         run: python scripts/sync-bake.py --check
+      - name: Validate KrakenD configuration
+        run: docker run --rm -e FC_ENABLE=1 -e FC_TEMPLATES=/etc/krakend/templates -v "$PWD/infra/krakend:/etc/krakend:ro" krakend:2.13.11 check -c /etc/krakend/krakend.tmpl
       - name: Validate staging Compose and release contents
         run: python scripts/check-staging.py
       - name: Check deploy script syntax
@@ -167,7 +169,7 @@ jobs:
           set -euo pipefail
           release_id="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           remote_dir="$STAGING_DEPLOY_PATH/releases/$release_id"
-          tar -czf release.tgz compose.staging.yml scripts/deploy-staging.sh infra/postgres/init-databases.sh infra/postgres/pg_hba.conf infra/clickhouse/init-databases.sh infra/krakend/krakend.json
+          tar -czf release.tgz compose.staging.yml scripts/deploy-staging.sh infra/postgres/init-databases.sh infra/postgres/pg_hba.conf infra/clickhouse/init-databases.sh infra/krakend/krakend.tmpl infra/krakend/templates
           ssh -i "$HOME/.ssh/staging_key" -p "$STAGING_SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$STAGING_USER@$STAGING_HOST" "mkdir -p -- '$remote_dir'"
           scp -i "$HOME/.ssh/staging_key" -P "$STAGING_SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes release.tgz "$STAGING_USER@$STAGING_HOST:$remote_dir/release.tgz"
           ssh -i "$HOME/.ssh/staging_key" -p "$STAGING_SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$STAGING_USER@$STAGING_HOST" "cd '$remote_dir' && tar -xzf release.tgz && bash scripts/deploy-staging.sh '$STAGING_DEPLOY_PATH' '$IMAGE_TAG' '$DOCKER_REGISTRY'"

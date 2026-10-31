@@ -30,17 +30,28 @@ services:
 
   programmisto_krakend:
     image: krakend:2.13.11
+    environment:
+      FC_ENABLE: "1"
+      FC_TEMPLATES: /etc/krakend/templates
+      AUTH_SERVICE_URL: http://programmisto_auth:8000
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-["http://localhost:3000","http://localhost:3001"]}
     ports:
       - "127.0.0.1:${KRAKEND_PORT:-8080}:8080"
     restart: always
     volumes:
       - type: bind
-        source: ./infra/krakend/krakend.json
-        target: /etc/krakend/krakend.json
+        source: ./infra/krakend/krakend.tmpl
+        target: /etc/krakend/krakend.tmpl
         read_only: true
         bind:
           create_host_path: false
-    command: ['run', '-c', '/etc/krakend/krakend.json']
+      - type: bind
+        source: ./infra/krakend/templates
+        target: /etc/krakend/templates
+        read_only: true
+        bind:
+          create_host_path: false
+    command: ['run', '-c', '/etc/krakend/krakend.tmpl']
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/__health"]
       interval: 10s
@@ -61,6 +72,8 @@ services:
       context: ./backend
       dockerfile: auth/Dockerfile.dev
     image: ghcr.io/programmisto/programmisto_auth:latest
+    ports:
+      - "127.0.0.1:${AUTH_PORT:-8001}:8000"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-ujin}:${POSTGRES_PASSWORD:-local-dev-password}@programmisto_postgres:5432/${AUTH_DB_NAME:-auth_db}
       JWT_SECRET: ${JWT_SECRET:-local-development-only-change-me-please}
