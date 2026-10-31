@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional
 from uuid import UUID
 
@@ -7,8 +8,24 @@ from app.core.database.session import get_db
 from app.core.dependencies.integration import get_user_info
 from app.core.dependencies.crud import device as crud_device
 from app.api.v1.schemas.device import DeviceResponse
+from app.models.device import Device
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/devices", tags=["devices"])
+
+
+class DeviceObjectResponse(BaseModel):
+    object_id: UUID
+    devices_count: int
+
+
+@router.get("/objects", response_model=List[DeviceObjectResponse])
+def read_device_objects(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_user_info),
+):
+    rows = db.query(Device.object_id, func.count(Device.id)).group_by(Device.object_id).order_by(Device.object_id).all()
+    return [{"object_id": object_id, "devices_count": count} for object_id, count in rows]
 
 
 @router.get("/", response_model=List[DeviceResponse])

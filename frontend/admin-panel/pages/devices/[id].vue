@@ -1,29 +1,144 @@
 <script setup lang="ts">
-import { ArrowLeft, Activity, CircleAlert, Cpu, Power, Wifi, WifiOff } from 'lucide-vue-next'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { Badge } from '@/components/ui/badge'
+import { getDevice, getDeviceState, getDeviceHistory, sendCommand } from '~/utils/api/integration'
+import type { Device, DeviceState, Signal, TelemetryPoint } from '~/types/integration'
+import { useAuthStore } from '~/stores/auth'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 const route = useRoute()
-const samples: Record<string, { name: string; model: string; online: boolean; object: string }> = {
-  '101': { name: 'Реле освещения', model: 'Ujin Relay 1', online: true, object: 'ЖК Северный · Корпус 1' },
-  '102': { name: 'Датчик температуры', model: 'Temperature Sensor', online: true, object: 'ЖК Северный · Корпус 1' },
-  '103': { name: 'Контроллер освещения', model: 'Lighting Controller', online: false, object: 'ЖК Северный · Корпус 2' },
-  '104': { name: 'Датчик протечки', model: 'Leak Sensor', online: true, object: 'ЖК Центральный · Корпус 1' },
+const auth = useAuthStore()
+const device = ref<Device | null>(null)
+const state = ref<DeviceState | null>(null)
+const history = ref<TelemetryPoint[]>([])
+const selectedSignal = ref('')
+const error = ref('')
+const stateError = ref('')
+const historyError = ref('')
+const commandMessage = ref('')
+const commandError = ref('')
+const loading = ref(false)
+const historyLoading = ref(false)
+const sending = ref(false)
+const drafts = reactive<Record<string, string>>({})
+let generation = 0
+let timer: ReturnType<typeof setInterval> | undefined
+const message = (e: unknown) => e instanceof Error ? e.message : 'Не удалось выполнить запрос'
+const date = (v: string | null) => v ? new Date(v).toLocaleString('ru-RU') : 'Нет данных'
+const display = (v: unknown) => v === undefined || v === null ? '—' : typeof v === 'boolean' ? (v ? 'Да' : 'Нет') : String(v)
+async function refreshState() {
+  const version = generation
+  const id = String(route.params.id)
+  try {
+    const result = await getDeviceState(id)
+    if (version === generation) { state.value = result; stateError.value = '' }
+  } catch (e) { if (version === generation) stateError.value = message(e) }
 }
-const device = computed(() => samples[String(route.params.id)])
-const message = ref('')
-function simulateCommand() { message.value = 'Команда не отправлена: подключение к backend API пока отсутствует. Это демонстрационный экран.' }
+async function loadHistory() {
+  if (!selectedSignal.value) return
+  const version = generation
+  const signal = selectedSignal.value
+  historyLoading.value = true; historyError.value = ''
+  try {
+    const result = await getDeviceHistory(String(route.params.id), signal)
+    if (version === generation && selectedSignal.value === signal) history.value = result
+  } catch (e) { if (version === generation) { historyError.value = message(e); history.value = [] } }
+  finally { if (version === generation) historyLoading.value = false }
+}
+async function load() {
+  generation++; const version = generation
+  device.value = null; state.value = null; history.value = []; error.value = ''; commandMessage.value = ''
+  loading.value = true
+  try {
+    const result = await getDevice(String(route.params.id))
+    if (version !== generation) return
+    device.value = result
+    selectedSignal.value = result.signals[0]?.external_signal_id || ''
+    await Promise.all([refreshState(), loadHistory()])
+  } catch (e) { if (version === generation) error.value = message(e) }
+  finally { if (version === generation) loading.value = false }
+}
+async function command(signal: Signal) {
+  if (sending.value) return
+  commandError.value = ''; commandMessage.value = ''
+  const raw = drafts[signal.id]?.trim()
+  if (!raw) { commandError.value = 'Введите значение команды'; return }
+  let value: string | number | boolean = raw
+  const current = state.value?.signals[signal.external_signal_id]
+  if (typeof current === 'boolean') {
+    if (!['true', 'false', '1', '0'].includes(raw.toLowerCase())) { commandError.value = 'Введите true или false'; return }
+    value = ['true', '1'].includes(raw.toLowerCase())
+  } else if (typeof current === 'number' || signal.min_value !== null || signal.max_value !== null || signal.signal_type === 'range') {
+    value = Number(raw)
+    if (!Number.isFinite(value)) { commandError.value = 'Введите число'; return }
+    if ((signal.min_value !== null && value < signal.min_value) || (signal.max_value !== null && value > signal.max_value)) { commandError.value = 'Значение вне допустимого диапазона'; return }
+  }
+  sending.value = true
+  const version = generation
+  try {
+    const result = await sendCommand(String(route.params.id), { signal_id: signal.id, value, idempotency_key: crypto.randomUUID() })
+    if (version !== generation) return
+    const labels: Record<string, string> = { success: 'Выполнено, устройство подтвердило изменение', failed: 'Команда не выполнена', timeout: 'Устройство не подтвердило изменение вовремя', pending: 'Команда принята' }
+    commandMessage.value = labels[result.status] || result.status
+    if (result.status !== 'success' && result.message) commandMessage.value += ': ' + result.message
+    await refreshState()
+  } catch (e) { if (version === generation) commandError.value = message(e) }
+  finally { sending.value = false }
+}
+onMounted(() => {
+  if (auth.user?.role === 'admin') {
+    void load()
+    timer = setInterval(() => { if (!loading.value) void refreshState() }, 10000)
+  }
+})
+watch(() => route.params.id, () => { if (auth.user?.role === 'admin') void load() })
+onBeforeUnmount(() => { generation++; if (timer) clearInterval(timer) })
 </script>
 <template>
-  <div class="space-y-6"><Button variant="ghost" as-child class="-ml-3"><NuxtLink to="/devices"><ArrowLeft class="mr-2 size-4" />Назад к устройствам</NuxtLink></Button>
-    <template v-if="device"><div class="flex flex-wrap items-center gap-3"><h1 class="text-2xl font-bold">{{ device.name }} <span class="font-normal text-muted-foreground">#{{ route.params.id }}</span></h1><Badge :variant="device.online ? 'secondary' : 'destructive'"><component :is="device.online ? Wifi : WifiOff" class="mr-1 size-3" />{{ device.online ? 'В сети (демо)' : 'Нет связи (демо)' }}</Badge></div>
-      <Alert v-if="message"><CircleAlert class="size-4" /><AlertTitle>Информация</AlertTitle><AlertDescription>{{ message }}</AlertDescription></Alert>
-      <div class="grid gap-4 lg:grid-cols-3"><Card><CardHeader><CardTitle class="flex items-center gap-2"><Power class="size-5" />Управление</CardTitle><CardDescription>Карточка IoT-устройства</CardDescription></CardHeader><CardContent class="space-y-4"><div><p class="text-xs text-muted-foreground">Модель</p><p class="font-medium">{{ device.model }}</p></div><Separator /><div><p class="text-xs text-muted-foreground">Объект</p><p class="font-medium">{{ device.object }}</p></div><Separator /><div><p class="text-xs text-muted-foreground">Статус телеметрии</p><p class="text-sm">Демонстрационное значение, не обновляется с сервера</p></div><AlertDialog><AlertDialogTrigger as-child><Button class="w-full" :disabled="!device.online"><Power class="mr-2 size-4" />Подготовить команду</Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Подтверждение команды</AlertDialogTitle><AlertDialogDescription>В этом прототипе отправка IoT-команд недоступна. После подключения API потребуется выбрать конкретное действие и получить подтверждённый ответ сервера.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Отмена</AlertDialogCancel><AlertDialogAction @click="simulateCommand">Понятно</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></CardContent></Card>
-        <Card class="lg:col-span-2"><CardHeader><CardTitle class="flex items-center gap-2"><Activity class="size-5" />История сигналов</CardTitle><CardDescription>График появится после подключения API истории телеметрии</CardDescription></CardHeader><CardContent><div class="flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed p-6 text-center"><Activity class="mb-3 size-9 text-muted-foreground" /><p class="font-medium">История пока недоступна</p><p class="mt-1 max-w-md text-sm text-muted-foreground">Здесь можно разместить график Unovis с временным диапазоном, единицами измерения и временем последнего обновления.</p></div></CardContent></Card>
-      </div>
-    </template><Card v-else><CardContent class="flex flex-col items-center gap-3 py-12"><Cpu class="size-8 text-muted-foreground" /><p class="font-semibold">Устройство не найдено</p><p class="text-sm text-muted-foreground">Для указанного ID нет демонстрационных данных.</p><Button as-child variant="outline"><NuxtLink to="/devices">К списку устройств</NuxtLink></Button></CardContent></Card>
+  <div class="space-y-6">
+    <Button variant="outline" as-child><NuxtLink :to="{ path: '/devices', query: route.query }">К списку устройств</NuxtLink></Button>
+    <p v-if="auth.user?.role !== 'admin'">Доступ предоставляется только администратору.</p>
+    <p v-if="loading" role="status">Загрузка…</p>
+    <p v-if="error" role="alert" class="text-destructive">{{ error }}</p>
+    <template v-if="device">
+      <Card><CardHeader><CardTitle>{{ device.name }}</CardTitle></CardHeader><CardContent class="space-y-2">
+        <p>{{ device.device_type }} · {{ device.external_id }}</p>
+        <p>Статус: {{ state?.status || device.status }} · Качество данных: {{ state?.quality || 'unknown' }}</p>
+        <p>Последняя связь: {{ date(state?.last_seen_at || device.last_seen_at) }}</p>
+        <p>Показания получены: {{ date(state?.state_received_at || null) }}</p>
+        <p class="text-sm text-muted-foreground">Показания обновляются каждые 10 секунд. При ошибке показано последнее полученное состояние.</p>
+        <p v-if="stateError" role="alert" class="text-destructive">{{ stateError }}</p>
+        <Button variant="outline" @click="refreshState">Обновить показания</Button>
+      </CardContent></Card>
+      <Card><CardHeader><CardTitle>Показания и управление</CardTitle></CardHeader><CardContent>
+        <p v-if="!device.signals.length">Сигналы не зарегистрированы</p>
+        <div v-for="signal in device.signals" :key="signal.id" class="border-b py-4 space-y-2">
+          <p class="font-medium">{{ signal.name }}: {{ display(state?.signals[signal.external_signal_id]) }} {{ signal.unit }}</p>
+          <p class="text-xs text-muted-foreground">{{ signal.external_signal_id }} · {{ signal.min_value ?? '—' }} … {{ signal.max_value ?? '—' }}</p>
+          <form v-if="signal.is_writable" class="flex flex-wrap gap-2" @submit.prevent="command(signal)">
+            <label :for="'command-' + signal.id" class="sr-only">Новое значение: {{ signal.name }}</label>
+            <Input :id="'command-' + signal.id" v-model="drafts[signal.id]" class="max-w-64" placeholder="Новое значение" required :disabled="sending || !device.is_active" />
+            <Button type="submit" :disabled="sending || !device.is_active">{{ sending ? 'Ожидание подтверждения…' : 'Отправить' }}</Button>
+          </form>
+          <p v-else class="text-xs text-muted-foreground">Только чтение</p>
+        </div>
+        <p v-if="commandMessage" role="status" class="mt-4">{{ commandMessage }}</p>
+        <p v-if="commandError" role="alert" class="mt-4 text-destructive">{{ commandError }}</p>
+      </CardContent></Card>
+      <Card><CardHeader><CardTitle>История числовых показаний</CardTitle></CardHeader><CardContent class="space-y-4">
+        <form class="flex flex-wrap gap-2" @submit.prevent="loadHistory">
+          <label for="history-signal" class="sr-only">Сигнал для истории</label>
+          <select id="history-signal" v-model="selectedSignal" class="rounded border bg-background p-2" @change="loadHistory">
+            <option v-for="signal in device.signals" :key="signal.id" :value="signal.external_signal_id">{{ signal.name }}</option>
+          </select>
+          <Button variant="outline" type="submit" :disabled="historyLoading || !selectedSignal">Обновить историю</Button>
+        </form>
+        <p v-if="historyLoading" role="status">Загрузка истории…</p>
+        <p v-else-if="historyError" role="alert" class="text-destructive">{{ historyError }}</p>
+        <p v-else-if="!history.length">Записей пока нет. Сохраняются числовые и логические показания.</p>
+        <div v-else class="max-h-96 overflow-auto"><table class="w-full text-left text-sm"><thead><tr><th>Время</th><th>Значение</th><th>Качество</th></tr></thead><tbody>
+          <tr v-for="(point, index) in history" :key="index" class="border-b"><td class="py-2">{{ date(point.time) }}</td><td>{{ point.value }} {{ point.unit }}</td><td>{{ point.quality }}</td></tr>
+        </tbody></table></div>
+      </CardContent></Card>
+    </template>
   </div>
 </template>

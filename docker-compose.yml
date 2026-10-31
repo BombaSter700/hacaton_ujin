@@ -113,7 +113,6 @@ services:
     environment:
       NODE_ENV: production
       NUXT_PUBLIC_API_URL: ${FRONTEND_API_URL:-http://localhost:8080}
-      NUXT_PUBLIC_INTEGRATION_API_URL: ${FRONTEND_INTEGRATION_API_URL:-http://localhost:8002}
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/admin/api/health').then(async r => { if (!r.ok || (await r.json()).status !== 'ok') process.exit(1) }).catch(() => process.exit(1))"]
       interval: 10s
@@ -226,6 +225,8 @@ services:
       - "127.0.0.1:${INTEGRATION_PORT:-8002}:8000"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-ujin}:${POSTGRES_PASSWORD:-local-dev-password}@programmisto_postgres:5432/${INTEGRATION_DB_NAME:-integration_db}
+      AUTH_SERVICE_URL: http://programmisto_auth:8000
+      REDIS_URL: redis://:${REDIS_PASSWORD:-local-redis-password}@programmisto_redis:6379/0
       JWT_SECRET: ${JWT_SECRET:-local-development-only-change-me-please}
       DEBUG: "true"
       CLICKHOUSE_HOST: programmisto_clickhouse
@@ -234,7 +235,11 @@ services:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-local-clickhouse-password}
       CLICKHOUSE_DB: ${CLICKHOUSE_DB:-iot}
     depends_on:
+      programmisto_redis:
+        condition: service_healthy
       programmisto_postgres:
+        condition: service_healthy
+      programmisto_auth:
         condition: service_healthy
       programmisto_clickhouse:
         condition: service_healthy

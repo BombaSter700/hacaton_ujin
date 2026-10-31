@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from app.core.database.engine import engine
+from app.services.state_repo import state_repo
 
 router = APIRouter()
 
@@ -14,7 +15,7 @@ def live():
 
 
 @router.get("/ready")
-def ready():
+async def ready():
     try:
         with engine.connect() as connection:
             for table in (
@@ -30,4 +31,10 @@ def ready():
             status_code=503,
             content={"status": "unavailable", "database": "unavailable"},
         )
-    return {"status": "ok", "database": "ok", "service": "integration"}
+    try:
+        if state_repo.redis is None:
+            raise RuntimeError("Redis is not connected")
+        await state_repo.redis.ping()
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "unavailable", "redis": "unavailable"})
+    return {"status": "ok", "database": "ok", "redis": "ok", "service": "integration"}

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from uuid import UUID
+from datetime import timezone
 import clickhouse_connect
 
 from app.core.config import settings
@@ -28,7 +29,7 @@ async def get_device_state(
         "device_id": device.id,
         "name": device.name,
         "status": device.status.value,
-        "last_seen_at": device.last_seen_at,
+        "last_seen_at": device.last_seen_at.replace(tzinfo=timezone.utc) if device.last_seen_at else None,
         "state_received_at": state_data.get("received_at"),
         "quality": state_data.get("quality", "unknown"),
         "signals": state_data.get("signals", {})
@@ -39,7 +40,7 @@ async def get_device_state(
 def get_device_history(
     device_id: UUID,
     signal_name: str = Query(...),
-    limit: int = Query(100, le=1000),
+    limit: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_user_info)
 ):
@@ -60,8 +61,8 @@ def get_device_history(
             ORDER BY measured_at DESC LIMIT {limit:UInt32}
         """
         result = client.query(query, parameters={"device_id": device_id, "metric": signal_name, "limit": limit})
-        return [{"time": row[0], "value": row[1], "unit": row[2], "quality": row[3]} for row in result.result_rows]
+        return [{"time": row[0].replace(tzinfo=timezone.utc), "value": row[1], "unit": row[2], "quality": row[3]} for row in result.result_rows]
     except Exception as e:
-        raise HTTPException(500, f"ClickHouse error: {e}")
+        raise HTTPException(500, "Telemetry storage unavailable")
     finally:
         client.close()

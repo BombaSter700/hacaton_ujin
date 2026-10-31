@@ -22,24 +22,26 @@ class CommandService:
         self, db: Session, device: Device, cmd_in: CommandRequest, user_id: int
     ) -> CommandResponse:
 
-        # Защита от двойного клика 
+        if not device.is_active:
+            raise HTTPException(409, "Device is disabled")
+        # Защита от двойного клика
         if cmd_in.idempotency_key:
             existing_cmd = (
                 db.query(CommandLog)
                 .filter(
-                    CommandLog.user_id == user_id, 
+                    CommandLog.user_id == user_id,
                     CommandLog.idempotency_key == cmd_in.idempotency_key
                 )
                 .first()
             )
 
             if existing_cmd:
-                if existing_cmd.device_id != device.id or existing_cmd.signal_id != cmd_in.signal_id:
+                if existing_cmd.device_id != device.id or existing_cmd.signal_id != cmd_in.signal_id or existing_cmd.value != {"value": cmd_in.value}:
                     raise HTTPException(
                         status_code=status.HTTP_409_CONFLICT,
                         detail="Idempotency key used for different command payload"
                     )
-                
+
                 logger.info(f"Idempotent hit for key: {cmd_in.idempotency_key}")
                 return CommandResponse(
                     command_id=existing_cmd.id,
@@ -68,7 +70,7 @@ class CommandService:
             if signal.max_value is not None and cmd_in.value > signal.max_value:
                 raise HTTPException(status_code=400, detail=f"Value above maximum {signal.max_value}")
 
-        # Создаем запись в логе 
+        # Создаем запись в логе
         db_cmd = CommandLog(
             user_id=user_id,
             device_id=device.id,
@@ -78,7 +80,7 @@ class CommandService:
             status=CommandStatus.PENDING,
             created_at=datetime.now(timezone.utc)
         )
-        
+
         try:
             db.add(db_cmd)
             db.commit()
@@ -87,9 +89,11 @@ class CommandService:
             # Защита от Race Condition
             db.rollback()
             existing = db.query(CommandLog).filter_by(user_id=user_id, idempotency_key=cmd_in.idempotency_key).first()
-            return CommandResponse(
-                command_id=existing.id, status=existing.status.value, message="Concurrent request handled"
-            )
+            if existing is None:
+                raise HTTPException(409, "Command conflict; retry with a new key") from None
+            if existing.device_id != device.id or existing.signal_id != cmd_in.signal_id or existing.value != {"value": cmd_in.value}:
+                raise HTTPException(409, "Idempotency key used for different command payload")
+            return CommandResponse(command_id=existing.id, status=existing.status.value, message=existing.error_message, created_at=existing.created_at, completed_at=existing.completed_at)
 
         # Click House
         analytics.log_event(
@@ -128,7 +132,7 @@ class CommandService:
             while (asyncio.get_event_loop().time() - start_time) < settings.command_confirmation_timeout:
                 await asyncio.sleep(settings.command_confirmation_poll_interval)
                 state = await adapter.get_state()
-                
+
                 current_val = state.get("signals", {}).get(signal.external_signal_id)
                 if str(current_val).lower() == str(cmd_in.value).lower():
                     confirmed = True
@@ -149,7 +153,7 @@ class CommandService:
         db.commit()
         db.refresh(db_cmd)
 
-        # Click House 
+        # Click House
         analytics.log_event(
             table="audit_events",
             data={

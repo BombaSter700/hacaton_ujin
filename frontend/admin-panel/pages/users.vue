@@ -1,34 +1,45 @@
 <script setup lang="ts">
-import { Search, ShieldCheck, UserRound, Users } from 'lucide-vue-next'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { getUsers } from '~/utils/api/auth'
+import type { User } from '~/types/auth'
+import { useAuthStore } from '~/stores/auth'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+const auth = useAuthStore()
 const query = ref('')
-const users = [
-  { id: 1, name: 'Иван Петров', email: 'ivan@example.test', role: 'Администратор УК', status: 'Активен' },
-  { id: 2, name: 'Мария Соколова', email: 'maria@example.test', role: 'Диспетчер', status: 'Активен' },
-  { id: 3, name: 'Алексей Смирнов', email: 'alex@example.test', role: 'Оператор', status: 'Приглашён' },
-]
-const filtered = computed(() => users.filter(u => `${u.name} ${u.email} ${u.role}`.toLowerCase().includes(query.value.toLowerCase())))
+const users = ref<User[]>([])
+const pending = ref(false)
+const error = ref('')
+const skip = ref(0)
+const limit = 50
+const filtered = computed(() => users.value.filter(user => [user.email, user.first_name, user.last_name].join(' ').toLowerCase().includes(query.value.toLowerCase())))
+async function load(offset = skip.value) {
+  if (pending.value) return
+  pending.value = true
+  error.value = ''
+  try { users.value = await getUsers(offset, limit); skip.value = offset }
+  catch (cause) { error.value = cause instanceof Error ? cause.message : 'Не удалось загрузить пользователей' }
+  finally { pending.value = false }
+}
+onMounted(() => { if (auth.user?.role === 'admin') void load() })
 </script>
 <template>
-  <div class="flex flex-col gap-6">
-    <div class="flex items-center gap-3"><h1 class="text-2xl font-bold">Пользователи</h1><Badge variant="secondary">Демо</Badge>
-    </div>
-    <Card><CardHeader><CardTitle class="flex items-center gap-2 text-base">
-      <Users class="size-5" />Сотрудники УК</CardTitle>
-      <CardDescription>Пользователи и роли приведены в качестве примера; управление доступом подключается через backend.</CardDescription></CardHeader><CardContent>
-        <div class="relative mb-4 max-w-sm"><Search class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input v-model="query" placeholder="Поиск сотрудника" class="pl-9" />
-        </div>
-        <div class="overflow-x-auto rounded-lg border"><Table><TableHeader><TableRow><TableHead>Сотрудник</TableHead><TableHead>Email</TableHead><TableHead>Роль</TableHead><TableHead>Статус</TableHead></TableRow></TableHeader><TableBody><TableRow v-for="u in filtered" :key="u.id">
-          <TableCell class="font-medium">
-          <div class="flex items-center gap-2"><UserRound class="size-4 text-muted-foreground" />{{ u.name }}
-          </div></TableCell>
-          <TableCell>{{ u.email }}</TableCell>
-          <TableCell><span class="inline-flex items-center gap-1"><ShieldCheck class="size-4 text-muted-foreground" />{{ u.role }}</span></TableCell>
-          <TableCell><Badge variant="outline">{{ u.status }}</Badge></TableCell></TableRow>
-          <TableRow v-if="!filtered.length"><TableCell colspan="4" class="py-10 text-center text-muted-foreground">Сотрудники не найдены</TableCell></TableRow></TableBody></Table>
-        </div></CardContent></Card>
+  <div class="space-y-6">
+    <h1 class="text-2xl font-bold">Пользователи</h1>
+    <Card><CardHeader><CardTitle>Учётные записи</CardTitle><CardDescription>Данные сервиса авторизации. Поиск выполняется по загруженной странице.</CardDescription></CardHeader>
+      <CardContent>
+        <p v-if="auth.user?.role !== 'admin'" role="alert">Список пользователей доступен только администратору.</p>
+        <template v-else>
+          <div class="mb-4 flex gap-3"><Input v-model="query" placeholder="Поиск на странице" class="max-w-sm" /><Button variant="outline" :disabled="pending" @click="load()">Обновить</Button></div>
+          <p v-if="error" role="alert" class="mb-4 text-destructive">{{ error }}</p>
+          <p v-if="pending" class="mb-4 text-muted-foreground">Загрузка…</p>
+          <div class="overflow-x-auto rounded-lg border"><Table><TableHeader><TableRow><TableHead>Пользователь</TableHead><TableHead>Email</TableHead><TableHead>Роль</TableHead><TableHead>Статус</TableHead></TableRow></TableHeader>
+            <TableBody><TableRow v-for="user in filtered" :key="user.id"><TableCell>{{ [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Без имени' }}</TableCell><TableCell>{{ user.email }}</TableCell><TableCell>{{ user.role === 'admin' ? 'Администратор' : 'Клиент' }}</TableCell><TableCell>{{ user.is_active ? 'Активен' : 'Отключён' }}</TableCell></TableRow><TableRow v-if="!pending && !filtered.length"><TableCell colspan="4" class="py-8 text-center">Нет пользователей</TableCell></TableRow></TableBody>
+          </Table></div>
+          <div class="mt-4 flex items-center gap-3"><Button variant="outline" :disabled="pending || skip === 0" @click="load(Math.max(0, skip - limit))">Назад</Button><span class="text-sm">Страница {{ Math.floor(skip / limit) + 1 }}</span><Button variant="outline" :disabled="pending || users.length < limit" @click="load(skip + limit)">Далее</Button></div>
+        </template>
+      </CardContent>
+    </Card>
   </div>
 </template>

@@ -32,6 +32,8 @@ class IntegrationServiceSettings(BaseSettings):
     cors_origins: list[str] = Field(default_factory=list)
     cors_allow_credentials: bool = True
     frontend_url: str = "http://localhost:3000"
+    auth_service_url: str = "http://programmisto_auth:8000"
+    auth_timeout_seconds: float = Field(default=3.0, gt=0, le=30)
 
 
     clickhouse_host: str = "clickhouse"
@@ -42,7 +44,6 @@ class IntegrationServiceSettings(BaseSettings):
 
     redis_url: str = "redis://redis:6379/0"
 
-    auth_service_url: str = "http://programmisto_auth:8000"
     
     # Адрес fleet.json эмуляторов для синхронизации
     emulator_fleet_url: str = "http://programmisto_emulators:8098/devices"

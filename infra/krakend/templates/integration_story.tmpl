@@ -1,0 +1,215 @@
+{
+  "endpoint": "/api/v1/integrations/",
+  "method": "GET",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "input_query_strings": [
+    "organization_id"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "INTEGRATION_SERVICE_URL" | default "http://programmisto_integration:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/integrations/",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/v1/integrations/{integration_id}",
+  "method": "GET",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "INTEGRATION_SERVICE_URL" | default "http://programmisto_integration:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/integrations/{integration_id}",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/v1/devices/",
+  "method": "GET",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "input_query_strings": [
+    "object_id",
+    "room_id"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "INTEGRATION_SERVICE_URL" | default "http://programmisto_integration:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/devices/",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/v1/devices/{device_id}",
+  "method": "GET",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "INTEGRATION_SERVICE_URL" | default "http://programmisto_integration:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/devices/{device_id}",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/integration/health/live",
+  "method": "GET",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "INTEGRATION_SERVICE_URL" | default "http://programmisto_integration:8000" | toJson }}
+      ],
+      "url_pattern": "/health/live",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/integration/health/ready",
+  "method": "GET",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "INTEGRATION_SERVICE_URL" | default "http://programmisto_integration:8000" | toJson }}
+      ],
+      "url_pattern": "/health/ready",
+      "encoding": "no-op"
+    }
+  ]
+}
+,
+{
+  "endpoint": "/api/v1/devices/{device_id}/state",
+  "method": "GET",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "INTEGRATION_SERVICE_URL" | default "http://programmisto_integration:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/devices/{device_id}/state",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/v1/devices/{device_id}/history",
+  "method": "GET",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "INTEGRATION_SERVICE_URL" | default "http://programmisto_integration:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/devices/{device_id}/history",
+      "encoding": "no-op"
+    }
+  ],
+  "input_query_strings": [
+    "signal_name",
+    "limit"
+  ]
+},
+{
+  "endpoint": "/api/v1/commands/{device_id}/send",
+  "timeout": "20s",
+  "method": "POST",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "INTEGRATION_SERVICE_URL" | default "http://programmisto_integration:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/commands/{device_id}/send",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/v1/integrations/emulators/sync",
+  "method": "POST",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "INTEGRATION_SERVICE_URL" | default "http://programmisto_integration:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/integrations/emulators/sync",
+      "encoding": "no-op"
+    }
+  ]
+}
+,
+{
+  "endpoint": "/api/v1/devices/objects",
+  "method": "GET",
+  "output_encoding": "no-op",
+  "input_headers": ["Authorization", "Content-Type", "Accept"],
+  "backend": [{
+    "host": [{{ env "INTEGRATION_SERVICE_URL" | default "http://programmisto_integration:8000" | toJson }}],
+    "url_pattern": "/api/v1/devices/objects",
+    "encoding": "no-op"
+  }]
+}

@@ -32,11 +32,16 @@ class AnalyticsWriter:
     async def start(self):
         """Запуск фонового цикла"""
         self.is_running = True
-        asyncio.create_task(self._flush_loop())
+        self.task = asyncio.create_task(self._flush_loop())
 
     async def stop(self):
         """Остановка и финальный сброс"""
         self.is_running = False
+        self.task.cancel()
+        try:
+            await self.task
+        except asyncio.CancelledError:
+            pass
         await self._flush_batch()
         if self.client:
             self.client.close()
@@ -60,7 +65,7 @@ class AnalyticsWriter:
             return
 
         batches: Dict[str, List[Dict]] = {}
-        
+
         # Забираем максимум 1000 элементов за раз
         for _ in range(min(1000, self.queue.qsize())):
             try:
@@ -77,7 +82,7 @@ class AnalyticsWriter:
                 await asyncio.to_thread(
                     self.client.insert,
                     table,
-                    rows,
+                    [[row.get(key) for key in rows[0]] for row in rows],
                     column_names=list(rows[0].keys())
                 )
                 logger.debug(f"Inserted {len(rows)} rows into {table}")

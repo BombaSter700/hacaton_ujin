@@ -1,88 +1,86 @@
-from typing import Any, Dict, List, Optional
-from fastapi import Depends, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+"""Validate the current auth session; never trust caller-provided identity headers."""
+
+from enum import Enum
+from typing import Any
+
 import httpx
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.core.config import settings
-from app.core.exceptions.integration_exceptions import IntegrationAuthException
 
 security = HTTPBearer(auto_error=False)
 
 
-async def get_user_from_auth(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-) -> Dict[str, Any]:
+class UserRole(str, Enum):
+    ADMIN = "admin"
+    CLIENT = "client"
 
-    if not credentials:
-        raise IntegrationAuthException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated (no token provided)",
+
+async def auth_http_client():
+    async with httpx.AsyncClient(
+        base_url=settings.auth_service_url,
+        timeout=settings.auth_timeout_seconds,
+        trust_env=False,
+    ) as client:
+        yield client
+
+
+async def get_user_info(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    client: httpx.AsyncClient = Depends(auth_http_client),
+) -> dict[str, Any]:
+    if credentials is None:
+        raise HTTPException(
+            401, "Bearer token is required", headers={"WWW-Authenticate": "Bearer"}
         )
-
     try:
-        # Делаем запрос к сервису авторизации
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            response = await client.get(
-                f"{settings.auth_service_url}/api/v1/auth/me",
-                headers={"Authorization": f"Bearer {credentials.credentials}"}
-            )
-            if response.status_code == 401:
-                raise IntegrationAuthException(
-                    status_code=status.HTTP_401_UNAUTHORIZED, 
-                    detail="Invalid or expired token"
-                )
-            
-            if response.status_code != 200:
-                raise IntegrationAuthException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Auth service is unavailable or returned an error"
-                )
-            
-            data = response.json()
-            
-            return {
-                "user_id": data.get("id"), 
-                "role": data.get("role", "client"),
-                "is_active": data.get("is_active", False)
-            }
-            
-    except httpx.RequestError:
-        raise IntegrationAuthException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Auth service connection error"
+        response = await client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": "Bearer " + credentials.credentials},
         )
+    except httpx.HTTPError:
+        raise HTTPException(503, "Authentication service unavailable") from None
+    if response.status_code in (401, 403):
+        raise HTTPException(response.status_code, "Invalid or revoked session")
+    if response.status_code != 200:
+        raise HTTPException(503, "Authentication service unavailable")
+    try:
+        user = response.json()
+        valid = (
+            isinstance(user, dict)
+            and type(user.get("id")) is int
+            and user["id"] > 0
+            and user.get("role") in ("admin", "client")
+            and user.get("is_active") is True
+        )
+    except (ValueError, TypeError):
+        valid = False
+    if not valid:
+        raise HTTPException(503, "Invalid response from authentication service")
+    # No object ACL exists yet. Do not expose all organizations/devices to clients.
+    if user["role"] != "admin":
+        raise HTTPException(
+            403, "IoT access is currently available to administrators only"
+        )
+    return {"user_id": user["id"], "role": user["role"]}
 
 
+get_user_from_auth = get_user_info
+get_user_from_jwt = get_user_info
 
-get_user_info = get_user_from_auth
+
+def require_any_role(required_roles: list[str]):
+    def checker(user_info: dict = Depends(get_user_info)):
+        if user_info["role"] not in required_roles:
+            raise HTTPException(403, "Insufficient permissions")
+        return user_info
+
+    return checker
 
 
 def require_role(required_role: str):
-    def checker(user_info: Dict[str, Any] = Depends(get_user_info)) -> Dict[str, Any]:
-        if user_info.get("role") != required_role:
-            raise IntegrationAuthException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access denied. Required role: {required_role}",
-            )
-        return user_info
-    return checker
+    return require_any_role([required_role])
 
 
-def require_any_role(required_roles: List[str]):
-    def checker(user_info: Dict[str, Any] = Depends(get_user_info)) -> Dict[str, Any]:
-        if user_info.get("role") not in required_roles:
-            raise IntegrationAuthException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access denied. Required roles: {', '.join(required_roles)}",
-            )
-        return user_info
-    return checker
-
-
-def require_admin(user_info: Dict[str, Any] = Depends(get_user_info)) -> Dict[str, Any]:
-    return require_role("admin")(user_info)
-
-
-def require_client_or_admin(
-    user_info: Dict[str, Any] = Depends(get_user_info),
-) -> Dict[str, Any]:
-    return require_any_role(["client", "admin"])(user_info)
+require_admin = require_role("admin")
+require_client_or_admin = require_any_role(["admin", "client"])

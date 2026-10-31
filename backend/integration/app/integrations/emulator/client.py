@@ -14,7 +14,7 @@ class EmulatorAdapter:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(f"{self.base_url}/state")
             resp.raise_for_status()
-            return resp.json()
+            return {"signals": resp.json()}
 
     async def send_command(self, signal_name: str, value: Any) -> bool:
         """POST /command (application/x-www-form-urlencoded)"""
@@ -28,4 +28,4 @@ class EmulatorAdapter:
             if resp.status_code != 200:
                 logger.error(f"Command HTTP error {resp.status_code}: {resp.text}")
                 return False
-            return True
+            return resp.json().get("error") == 0

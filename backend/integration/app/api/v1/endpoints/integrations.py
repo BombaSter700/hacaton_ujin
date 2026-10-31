@@ -80,3 +80,30 @@ def delete_integration(
     if not integration:
         raise HTTPException(status_code=404, detail="Integration not found")
     crud_integration.remove(db=db, id=integration_id)
+
+
+from pydantic import BaseModel
+from app.models.integration import Integration
+from app.services.device_sync import sync_emulators
+from app.core.config import settings
+
+class EmulatorSyncRequest(BaseModel):
+    organization_id: UUID
+    object_id: UUID
+
+@router.post("/emulators/sync")
+async def import_emulators(payload: EmulatorSyncRequest, db: Session = Depends(get_db), user: dict = Depends(require_admin)):
+    integration = db.query(Integration).filter_by(organization_id=payload.organization_id, platform_type="emulator").first()
+    if not integration:
+        integration = Integration(organization_id=payload.organization_id, platform_type="emulator", name="Emulators", base_url=settings.emulator_fleet_url)
+        db.add(integration)
+        db.flush()
+    try:
+        count = await sync_emulators(db, integration, payload.object_id)
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(409, str(exc)) from None
+    except Exception:
+        db.rollback()
+        raise HTTPException(503, "Emulator synchronization unavailable") from None
+    return {"integration_id": integration.id, "object_id": payload.object_id, "devices_count": count}

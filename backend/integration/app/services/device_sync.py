@@ -1,68 +1,48 @@
-
-import logging
+"""Import the configured internal emulator fleet, without accepting device URLs from users."""
+from datetime import datetime, timezone
+from urllib.parse import urlsplit
 import httpx
 from sqlalchemy.orm import Session
 from app.models.device import Device, Signal, DeviceStatus
 from app.models.integration import Integration
 from app.core.config import settings
 
-logger = logging.getLogger(__name__)
-
-
-async def sync_emulators(db: Session, integration: Integration, object_id: str):
-    async with httpx.AsyncClient(timeout=5.0) as client:
-        try:
-            resp = await client.get(settings.emulator_fleet_url)
-            resp.raise_for_status()
-            devices_data = resp.json()
-        except Exception as e:
-            logger.error(f"Failed to fetch fleet: {e}")
-            raise
-
-        for dev_info in devices_data:
-            base_url = dev_info["url"]
-            serial = dev_info["serial"]
-            try:
-                decl_resp = await client.get(f"{base_url}/declaration")
-                decl_resp.raise_for_status()
-                decl = decl_resp.json()
-            except Exception as e:
-                logger.warning(f"Skip {serial}: failed to get declaration ({e})")
-                continue
-            device = db.query(Device).filter_by(
-                integration_id=integration.id, external_id=serial
-            ).first()
-            
+async def sync_emulators(db: Session, integration: Integration, object_id):
+    host = urlsplit(settings.emulator_fleet_url).hostname
+    count = 0
+    async with httpx.AsyncClient(timeout=5, trust_env=False) as client:
+        response = await client.get(settings.emulator_fleet_url)
+        response.raise_for_status()
+        fleet = response.json()["devices"]
+        for item in fleet:
+            port = int(item["port"])
+            if not 8099 <= port <= 8107:
+                raise ValueError("Unexpected emulator port")
+            base_url = f"http://{host}:{port}"
+            response = await client.get(base_url + "/declaration")
+            response.raise_for_status()
+            declarations = response.json()
+            device = db.query(Device).filter_by(integration_id=integration.id, external_id=item["serial"]).first()
             if not device:
-                device = Device(
-                    integration_id=integration.id,
-                    external_id=serial,
-                    base_url=base_url,
-                    object_id=object_id,
-                    name=decl.get("title", serial),
-                    device_type=decl.get("type", "unknown"),
-                    status=DeviceStatus.UNKNOWN
-                )
+                device = Device(integration_id=integration.id, external_id=item["serial"],
+                    object_id=object_id, name=item["family"], device_type=item["family"], status=DeviceStatus.UNKNOWN)
                 db.add(device)
-                db.flush() # Чтобы получить device.id для сигналов
-
-            for sig_data in decl.get("signals", []):
-                sig = db.query(Signal).filter_by(
-                    device_id=device.id, external_signal_id=sig_data["name"]
-                ).first()
-                
-                if not sig:
-                    sig = Signal(
-                        device_id=device.id,
-                        external_signal_id=sig_data["name"],
-                        name=sig_data.get("title", sig_data["name"]),
-                        signal_type=sig_data.get("kind", "unknown"),
-                        unit=sig_data.get("unit"),
-                        is_writable=sig_data.get("control") in ("rw", "w"),
-                        min_value=sig_data.get("min"),
-                        max_value=sig_data.get("max")
-                    )
-                    db.add(sig)
-            
+                db.flush()
+            elif device.object_id != object_id:
+                raise ValueError("Fleet already belongs to another object")
+            device.base_url = base_url
+            for data in declarations:
+                signal = db.query(Signal).filter_by(device_id=device.id, external_signal_id=data["name"]).first()
+                if not signal:
+                    signal = Signal(device_id=device.id, external_signal_id=data["name"])
+                    db.add(signal)
+                signal.name = data.get("title", data["name"])
+                signal.signal_type = data.get("control", "text")
+                signal.unit = data.get("measure")
+                signal.is_writable = data.get("management") in ("rw", "w")
+                signal.min_value = data.get("min")
+                signal.max_value = data.get("max")
+            count += 1
+        integration.last_sync_at = datetime.now(timezone.utc)
         db.commit()
-        logger.info("Device synchronization complete.")
+    return count

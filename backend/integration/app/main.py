@@ -36,10 +36,16 @@ async def lifespan(_: FastAPI):
         yield
     finally:
         logger.info(f"🛑 {settings.app_name} shutting down...")
+        poller_task.cancel()
+        try:
+            await poller_task
+        except asyncio.CancelledError:
+            pass
+        await state_repo.close()
         await analytics.stop()
         logger.info("✅ Shutdown complete.")
 
-   
+
 # Create FastAPI app
 app = FastAPI(
     title="Integration Service API",
