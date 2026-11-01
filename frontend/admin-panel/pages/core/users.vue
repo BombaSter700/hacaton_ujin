@@ -1,4 +1,5 @@
 <script setup lang="ts">
+definePageMeta({ path: '/users', name: 'users' })
 import { getUsers } from '~/utils/api/auth'
 import type { User } from '~/types/auth'
 import { useAuthStore } from '~/stores/auth'

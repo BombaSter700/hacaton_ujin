@@ -1,4 +1,5 @@
 <script setup lang="ts">
+definePageMeta({ path: '/scenarios', name: 'scenarios' })
 import { useAuthStore } from '~/stores/auth'
 import { getDeviceObjects, getDevices } from '~/utils/api/integration'
 import { getScenarios, getScenario, createScenario, updateScenario, toggleScenario, deleteScenario } from '~/utils/api/scenarios'

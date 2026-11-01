@@ -1,4 +1,5 @@
 <script setup lang="ts">
+definePageMeta({ path: '/login', name: 'login' })
 import { Eye, EyeOff, House, LockKeyhole, Mail } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useAuthStore } from '~/stores/auth'
 
-definePageMeta({ layout: 'auth' })
+definePageMeta({ layout: 'auth', path: '/login', name: 'login' })
 const auth = useAuthStore()
 const email = ref('')
 const password = ref('')

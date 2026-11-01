@@ -1,11 +1,12 @@
 <script setup lang="ts">
+definePageMeta({ path: '/register', name: 'register' })
 import { register } from '~/utils/api/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-definePageMeta({ layout: 'auth' })
+definePageMeta({ layout: 'auth', path: '/register', name: 'register' })
 const form = reactive({ email: '', password: '', first_name: '', last_name: '', phone: '' })
 const pending = ref(false)
 const error = ref('')

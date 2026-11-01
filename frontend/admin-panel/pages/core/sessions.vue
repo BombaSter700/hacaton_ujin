@@ -1,4 +1,5 @@
 <script setup lang="ts">
+definePageMeta({ path: '/sessions', name: 'sessions' })
 import { getSessions, revokeSession } from '~/utils/api/auth'
 import type { UserSession } from '~/types/auth'
 import { useAuthStore } from '~/stores/auth'
