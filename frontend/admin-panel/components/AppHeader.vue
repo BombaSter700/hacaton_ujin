@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Bell, ChevronDown, LogOut, Menu, Settings } from 'lucide-vue-next'
+import { ChevronDown, LogOut, Menu, Settings } from 'lucide-vue-next'
+import NotificationBell from '~/components/NotificationBell.vue'
 import { useAuthStore } from '~/stores/auth'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -54,15 +55,7 @@ async function signOut() {
       <p v-if="logoutError" role="alert" class="text-xs text-destructive">{{ logoutError }}</p>
     </div>
     <div class="flex items-center gap-2">
-      <Button
-        variant="ghost"
-        size="icon"
-        disabled
-        aria-label="Уведомления (скоро)"
-        title="Уведомления пока не подключены"
-      >
-        <Bell class="size-4" />
-      </Button>
+      <NotificationBell v-if="auth.user?.role === 'admin'" />
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
           <Button variant="ghost" class="h-auto gap-2 px-2 py-1.5">
