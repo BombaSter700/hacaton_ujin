@@ -1,0 +1,33 @@
+{
+  "id": "/admin/",
+  "name": "Умный дом — панель управляющей компании",
+  "short_name": "Умный дом УК",
+  "description": "Панель управляющей компании для мониторинга жилых объектов, управления IoT-устройствами и работы с платформой Ujin.",
+  "lang": "ru-RU",
+  "start_url": "/admin/",
+  "scope": "/admin/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#171717",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/admin/favicon.ico",
+      "sizes": "16x16 32x32 48x48",
+      "type": "image/x-icon",
+      "purpose": "any"
+    },
+    {
+      "src": "/admin/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/admin/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
