@@ -73,7 +73,11 @@ jobs:
           cache-dependency-path: backend/auth/requirements.txt
       - run: python -m pip install -r requirements.txt
         working-directory: backend/auth
-      - run: python -m pytest -q
+      - name: Run auth tests
+        run: |
+          test -f tests/test_jwt.py
+          test -f tests/test_health.py
+          python -m pytest tests -q
         working-directory: backend/auth
         env:
           DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/auth_test
