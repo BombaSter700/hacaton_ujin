@@ -1,4 +1,17 @@
 <script setup lang="ts">
+import { useWorkspaceStore } from '~/stores/workspace'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { deviceName, signalName, displayLabel } from '~/utils/device-labels'
+import { sanitizeName } from '~/utils/sanitize'
+import { scenarioTemplates, type ScenarioTemplate } from '~/utils/scenario-templates'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
 import {
   Select,
@@ -24,7 +37,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 definePageMeta({ path: '/scenarios', name: 'scenarios' })
 import { useAuthStore } from '~/stores/auth'
-import { getDeviceObjects, getDevices } from '~/utils/api/integration'
+import { getDevices } from '~/utils/api/integration'
 import {
   getScenarios,
   getScenario,
@@ -34,15 +47,18 @@ import {
   deleteScenario,
 } from '~/utils/api/scenarios'
 import { parseSignalValue } from '~/utils/signal-values'
-import type { Device, DeviceObject } from '~/types/integration'
+import type { Device } from '~/types/integration'
 import type { Scenario, ScenarioInput, Operator } from '~/types/scenario'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 const auth = useAuthStore()
 const route = useRoute()
-const objects = ref<DeviceObject[]>([])
-const objectId = ref(typeof route.query.object_id === 'string' ? route.query.object_id : '')
+const workspace = useWorkspaceStore()
+const objects = computed(() => workspace.objects)
+const templates = computed(() => scenarioTemplates(devices.value))
+const templateOpen = ref(false)
+const objectId = computed(() => workspace.selectedId)
 const devices = ref<Device[]>([])
 const items = ref<Scenario[]>([])
 const total = ref(0)
@@ -146,6 +162,22 @@ function newScenario() {
   notice.value = ''
   editorOpen.value = true
 }
+function applyTemplate(template: ScenarioTemplate) {
+  newScenario()
+  name.value = template.name
+  description.value = template.description
+  conditions.value = template.conditions.map((condition) =>
+    condition.kind === 'time'
+      ? { ...conditionDraft(), ...condition }
+      : { ...conditionDraft(), ...condition, value: String(condition.value) },
+  )
+  actions.value = template.actions.map((action) => ({
+    ...actionDraft(),
+    ...action,
+    value: String(action.value),
+  }))
+  templateOpen.value = false
+}
 async function editScenario(item: Scenario) {
   pending.value = true
   error.value = ''
@@ -200,7 +232,7 @@ async function save() {
   try {
     const payload: ScenarioInput = {
       object_id: objectId.value,
-      name: name.value.trim(),
+      name: sanitizeName(name.value),
       description: description.value.trim(),
       enabled: enabled.value,
       match_mode: matchMode.value,
@@ -264,13 +296,23 @@ async function page(delta: number) {
   skip.value = Math.max(0, skip.value + delta)
   await load()
 }
+let ready = false
+watch(objectId, () => {
+  if (ready && !editorOpen.value && !saving.value) {
+    skip.value = 0
+    void load()
+  }
+})
 onMounted(async () => {
   if (auth.user?.role !== 'admin') return
   pending.value = true
   try {
-    objects.value = await getDeviceObjects()
-    if (!objectId.value && objects.value.length === 1) objectId.value = objects.value[0]!.object_id
+    await workspace.initialize(
+      typeof route.query.object_id === 'string' ? route.query.object_id : '',
+    )
+    if (workspace.error) throw new Error(workspace.error)
     if (objectId.value) await load()
+    ready = true
   } catch (cause) {
     error.value = message(cause)
   } finally {
@@ -278,6 +320,7 @@ onMounted(async () => {
   }
 })
 onBeforeUnmount(() => {
+  ready = false
   generation++
 })
 </script>
@@ -292,29 +335,7 @@ onBeforeUnmount(() => {
           подключён. Переключатель «Активен» сохраняет настройку для будущего исполнения.
         </AlertDescription>
       </Alert>
-      <label class="block space-y-2">
-        <span>Объект</span>
-        <Select
-          v-model="objectId"
-          :disabled="pending || editorOpen || saving"
-          name="objectId"
-          @update:model-value="
-            ($event) => {
-              skip = 0
-              load()
-            }
-          "
-        >
-          <SelectTrigger class="w-full">
-            <SelectValue placeholder="Выберите объект" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem v-for="item in objects" :key="item.object_id" :value="item.object_id">
-              {{ item.object_id }} · устройств: {{ item.devices_count }}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </label>
+      <WorkspacePicker :disabled="pending || editorOpen || saving" />
       <Empty v-if="!pending && !objects.length">
         <EmptyHeader>
           <EmptyDescription>
@@ -340,6 +361,44 @@ onBeforeUnmount(() => {
       >
         Создать сценарий
       </Button>
+      <Dialog v-model:open="templateOpen">
+        <DialogTrigger as-child>
+          <Button
+            v-if="objectId && !editorOpen"
+            variant="outline"
+            :disabled="pending || saving || !devices.length"
+            class="ml-2"
+          >
+            Создать по шаблону
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Готовые сценарии</DialogTitle>
+            <DialogDescription>
+              Шаблон заполнит поля редактора. Проверьте правило и сохраните его. Автоматическое
+              выполнение пока не подключено.
+            </DialogDescription>
+          </DialogHeader>
+          <div class="grid gap-3">
+            <Button
+              v-for="template in templates"
+              :key="template.name + template.actions[0]?.device_id"
+              variant="outline"
+              class="h-auto flex-col items-start whitespace-normal p-4 text-left"
+              @click="applyTemplate(template)"
+            >
+              <span class="font-semibold">{{ template.name }}</span>
+              <span class="mt-1 text-sm font-normal text-muted-foreground">
+                {{ template.description }}
+              </span>
+            </Button>
+          </div>
+          <p v-if="!templates.length" class="text-sm text-muted-foreground">
+            Для шаблонов подключите вентиляцию с датчиком CO₂ или управляемое освещение.
+          </p>
+        </DialogContent>
+      </Dialog>
       <Card v-if="editorOpen">
         <CardHeader>
           <CardTitle>{{ editing ? 'Редактирование сценария' : 'Новый сценарий' }}</CardTitle>
@@ -411,7 +470,7 @@ onBeforeUnmount(() => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem v-for="device in devices" :key="device.id" :value="device.id">
-                            {{ device.name }}
+                            {{ deviceName(device) }}
                           </SelectItem>
                         </SelectContent>
                       </Select>
@@ -440,7 +499,9 @@ onBeforeUnmount(() => {
                             :key="signal.id"
                             :value="signal.id"
                           >
-                            {{ signal.name }} ({{ signal.unit || signal.value_type }})
+                            {{ signalName(signal) }} ({{
+                              signal.unit || displayLabel(signal.value_type)
+                            }})
                           </SelectItem>
                         </SelectContent>
                       </Select>
@@ -485,8 +546,8 @@ onBeforeUnmount(() => {
                           <SelectValue placeholder="Выберите значение" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="true">Да (true)</SelectItem>
-                          <SelectItem value="false">Нет (false)</SelectItem>
+                          <SelectItem value="true">Да</SelectItem>
+                          <SelectItem value="false">Нет</SelectItem>
                         </SelectContent>
                       </Select>
                       <Input
@@ -514,10 +575,21 @@ onBeforeUnmount(() => {
                       <span class="text-sm">Конец</span>
                       <Input v-model="condition.end_time" required type="time" />
                     </label>
-                    <label class="space-y-1">
-                      <span class="text-sm">Часовой пояс IANA</span>
-                      <Input v-model="condition.timezone" required placeholder="Europe/Moscow" />
-                    </label>
+                    <Collapsible>
+                      <CollapsibleTrigger class="text-sm text-muted-foreground underline">
+                        Часовой пояс
+                      </CollapsibleTrigger>
+                      <CollapsibleContent class="pt-2">
+                        <label class="space-y-1">
+                          <span class="text-sm">Часовой пояс IANA</span>
+                          <Input
+                            v-model="condition.timezone"
+                            required
+                            placeholder="Europe/Moscow"
+                          />
+                        </label>
+                      </CollapsibleContent>
+                    </Collapsible>
                   </div>
                   <p class="text-xs text-muted-foreground">
                     Интервал может проходить через полночь. Одинаковые начало и конец означают весь
@@ -573,7 +645,7 @@ onBeforeUnmount(() => {
                           :key="device.id"
                           :value="device.id"
                         >
-                          {{ device.name }}
+                          {{ deviceName(device) }}
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -601,7 +673,9 @@ onBeforeUnmount(() => {
                           :key="signal.id"
                           :value="signal.id"
                         >
-                          {{ signal.name }} ({{ signal.unit || signal.value_type }})
+                          {{ signalName(signal) }} ({{
+                            signal.unit || displayLabel(signal.value_type)
+                          }})
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -620,8 +694,8 @@ onBeforeUnmount(() => {
                         <SelectValue placeholder="Выберите значение" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="true">Да (true)</SelectItem>
-                        <SelectItem value="false">Нет (false)</SelectItem>
+                        <SelectItem value="true">Да</SelectItem>
+                        <SelectItem value="false">Нет</SelectItem>
                       </SelectContent>
                     </Select>
                     <Input

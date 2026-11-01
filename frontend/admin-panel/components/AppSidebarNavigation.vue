@@ -49,6 +49,6 @@ const visibleLinks = computed(() =>
     </NuxtLink>
   </nav>
   <div class="border-t px-5 py-4 text-xs text-muted-foreground">
-    Устройства из API · Обзор и объекты — демо
+    Управление домом и устройствами через облачный сервис.
   </div>
 </template>

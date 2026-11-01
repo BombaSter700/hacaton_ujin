@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatPhone } from '~/utils/format'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 definePageMeta({ path: '/profile', name: 'profile' })
 import { useAuthStore } from '~/stores/auth'
@@ -39,6 +40,9 @@ async function save() {
     <CardHeader><CardTitle>Мой профиль</CardTitle></CardHeader>
     <CardContent>
       <p class="mb-4 text-sm text-muted-foreground">{{ auth.user?.email }} · {{ auth.roleName }}</p>
+      <p v-if="auth.user?.phone" class="mb-4 text-sm text-muted-foreground">
+        {{ formatPhone(auth.user.phone) }}
+      </p>
       <form class="space-y-4" @submit.prevent="save">
         <Alert v-if="error" variant="destructive">
           <AlertDescription>{{ error }}</AlertDescription>

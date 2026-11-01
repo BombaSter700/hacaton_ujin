@@ -1,6 +1,9 @@
 import { http } from './httpClient'
+import { sanitizeText } from '../sanitize'
+import { assertValid, validateUuid } from '../validation'
 import type { DeviceObject } from '../../types/integration'
 import type { DeviceDefinition } from '../../types/integration'
+import type { DemoContext } from '../../types/integration'
 import type {
   Integration,
   IntegrationCreate,
@@ -16,8 +19,16 @@ import type {
 
 // Shared authenticated gateway client; refresh is coordinated with auth requests.
 const request = <T>(path: string, options: RequestInit = {}) => http<T>(path, options)
-export const getIntegrations = (organizationId: string) =>
-  request<Integration[]>(`/integrations/?organization_id=${encodeURIComponent(organizationId)}`)
+export const getDemoContext = () => request<DemoContext>('/integrations/demo')
+export const prepareDemo = () =>
+  request<DemoContext & EmulatorSyncResult>('/integrations/demo', { method: 'POST' })
+export const getIntegrations = async (organizationId: string) => {
+  organizationId = sanitizeText(organizationId)
+  assertValid(validateUuid(organizationId, 'Организация'))
+  return request<Integration[]>(
+    `/integrations/?organization_id=${encodeURIComponent(organizationId)}`,
+  )
+}
 export const getIntegration = (id: string) =>
   request<Integration>(`/integrations/${encodeURIComponent(id)}`)
 export const createIntegration = (data: IntegrationCreate) =>
@@ -29,7 +40,10 @@ export const updateIntegration = (id: string, data: IntegrationUpdate) =>
   })
 export const deleteIntegration = (id: string) =>
   request<void>(`/integrations/${encodeURIComponent(id)}`, { method: 'DELETE' })
-export const getDevices = (objectId: string, roomId?: string) => {
+export const getDevices = async (objectId: string, roomId?: string) => {
+  objectId = sanitizeText(objectId)
+  roomId = sanitizeText(roomId)
+  assertValid(validateUuid(objectId, 'Объект'), roomId ? validateUuid(roomId, 'Помещение') : '')
   const query = new URLSearchParams({ object_id: objectId })
   if (roomId) query.set('room_id', roomId)
   return request<Device[]>('/devices/?' + query)
@@ -57,8 +71,12 @@ export const getDeviceHistory = (id: string, signalName: string, limit = 100) =>
   request<TelemetryPoint[]>(
     `/devices/${encodeURIComponent(id)}/history?${new URLSearchParams({ signal_name: signalName, limit: String(limit) })}`,
   )
-export const syncEmulators = (organizationId: string, objectId: string) =>
-  request<EmulatorSyncResult>('/integrations/emulators/sync', {
+export const syncEmulators = async (organizationId: string, objectId: string) => {
+  organizationId = sanitizeText(organizationId)
+  objectId = sanitizeText(objectId)
+  assertValid(validateUuid(organizationId, 'Организация'), validateUuid(objectId, 'Объект'))
+  return request<EmulatorSyncResult>('/integrations/emulators/sync', {
     method: 'POST',
     body: JSON.stringify({ organization_id: organizationId, object_id: objectId }),
   })
+}

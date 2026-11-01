@@ -2,6 +2,8 @@ from pydantic import BaseModel
 from app.models.integration import Integration
 from app.services.device_sync import sync_emulators
 from app.core.config import settings
+from app.services.demo import get_demo_context
+from sqlalchemy import text
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -43,6 +45,28 @@ def read_integrations(
     return crud_integration.get_by_organization(
         db=db, organization_id=str(organization_id)
     )
+
+
+@router.get("/demo")
+def demo_context(db: Session = Depends(get_db), user: dict = Depends(require_admin)):
+    return get_demo_context(db)
+
+
+@router.post("/demo")
+async def prepare_demo(
+    db: Session = Depends(get_db), user: dict = Depends(require_admin)
+):
+    if db.get_bind().dialect.name == "postgresql":
+        db.execute(text("SELECT pg_advisory_xact_lock(73110601)"))
+    context = get_demo_context(db)
+    result = await import_emulators(
+        EmulatorSyncRequest(
+            **{key: context[key] for key in ("organization_id", "object_id")}
+        ),
+        db,
+        user,
+    )
+    return {**context, **result}
 
 
 @router.get("/{integration_id}", response_model=IntegrationResponse)

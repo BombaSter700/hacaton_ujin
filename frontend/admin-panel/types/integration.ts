@@ -3,6 +3,12 @@ export type UUID = string
 export interface DeviceObject {
   object_id: UUID
   devices_count: number
+  name: string
+}
+export interface DemoContext {
+  organization_id: UUID
+  object_id: UUID
+  name: string
 }
 export type IntegrationStatus = 'active' | 'error' | 'disabled'
 export type DeviceStatus = 'unknown' | 'online' | 'offline' | 'error'

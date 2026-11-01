@@ -253,6 +253,7 @@ services:
   programmisto_krakend:
     image: krakend:2.13.11
     environment:
+      USAGE_DISABLE: '1'
       FC_ENABLE: '1'
       FC_TEMPLATES: /etc/krakend/templates
       AUTH_SERVICE_URL: http://programmisto_auth:8000

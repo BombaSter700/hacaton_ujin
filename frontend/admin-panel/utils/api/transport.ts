@@ -1,4 +1,5 @@
 import type { TokenResponse } from '../../types/auth'
+import { errorLabel } from '../error-labels'
 
 export interface TokenStore {
   get(): TokenResponse | null
@@ -45,7 +46,7 @@ function error(response: Response, data: unknown): ApiError {
       })
       .join('; ')
   }
-  return new ApiError(response.status, message, data)
+  return new ApiError(response.status, errorLabel(message), data)
 }
 export function validTokens(value: unknown): value is TokenResponse {
   if (!value || typeof value !== 'object') return false

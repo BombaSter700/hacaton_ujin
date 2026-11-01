@@ -1,209 +1,119 @@
 <script setup lang="ts">
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { getDevices, getDeviceObjects } from '~/utils/api/integration'
-import type { Device, DeviceObject } from '~/types/integration'
+import { useWorkspaceStore } from '~/stores/workspace'
 import { useAuthStore } from '~/stores/auth'
-import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
+import { deviceName, deviceTypeLabel, primaryReading } from '~/utils/device-labels'
+import { formatDateTime, formatDeviceStatus } from '~/utils/format'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableEmpty,
-} from '@/components/ui/table'
-
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+const workspace = useWorkspaceStore()
 const auth = useAuthStore()
 const route = useRoute()
-const objectId = ref(typeof route.query.object_id === 'string' ? route.query.object_id : '')
-const roomId = ref(typeof route.query.room_id === 'string' ? route.query.room_id : '')
-const devices = ref<Device[]>([])
-const pending = ref(false)
-const loaded = ref(false)
-const error = ref('')
-const objects = ref<DeviceObject[]>([])
-const discovering = ref(false)
-const statusNames = {
-  unknown: 'Нет данных',
-  online: 'В сети',
-  offline: 'Нет связи',
-  error: 'Ошибка',
-}
-async function load() {
-  if (pending.value || !objectId.value.trim()) return
-  pending.value = true
-  error.value = ''
-  loaded.value = false
-  devices.value = []
-  try {
-    await navigateTo(
-      {
-        path: '/devices',
-        query: {
-          object_id: objectId.value.trim(),
-          ...(roomId.value.trim() ? { room_id: roomId.value.trim() } : {}),
-        },
-      },
-      { replace: true },
-    )
-    devices.value = await getDevices(objectId.value.trim(), roomId.value.trim() || undefined)
-    loaded.value = true
-  } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Не удалось загрузить устройства'
-  } finally {
-    pending.value = false
-  }
-}
-onMounted(async () => {
-  if (auth.user?.role !== 'admin') return
-  discovering.value = true
-  try {
-    objects.value = await getDeviceObjects()
-    if (!objectId.value && objects.value.length === 1) objectId.value = objects.value[0]!.object_id
-  } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : 'Не удалось загрузить объекты'
-  } finally {
-    discovering.value = false
-  }
-  if (objectId.value) await load()
+const query = ref('')
+const filtered = computed(() =>
+  workspace.devices.filter((device) =>
+    (deviceName(device) + ' ' + deviceTypeLabel(device.device_type))
+      .toLocaleLowerCase('ru-RU')
+      .includes(query.value.trim().toLocaleLowerCase('ru-RU')),
+  ),
+)
+onMounted(() => {
+  if (auth.user?.role === 'admin')
+    void workspace.refresh(typeof route.query.object_id === 'string' ? route.query.object_id : '')
 })
 </script>
 <template>
   <div class="space-y-6">
-    <h1 class="text-2xl font-bold">Устройства</h1>
-    <Card>
-      <CardHeader>
-        <CardTitle>Реестр устройств</CardTitle>
-        <CardDescription>
-          Выберите объект и откройте устройство для просмотра показаний, истории и управления.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <p v-if="auth.user?.role !== 'admin'">Доступ пока предоставляется только администратору.</p>
-        <template v-else>
-          <div v-if="discovering" role="status" class="space-y-2 py-4">
-            <span class="sr-only">Загрузка объектов…</span>
-            <Skeleton class="h-5 w-48" />
-            <Skeleton class="h-16 w-full" />
-          </div>
-          <div v-if="objects.length" class="mb-4 space-y-2">
-            <Label for="device-object">Объект с зарегистрированными устройствами</Label>
-            <Select
-              v-model="objectId"
-              :disabled="pending"
-              name="objectId"
-              @update:model-value="
-                ($event) => {
-                  roomId = ''
-                  load()
-                }
-              "
-            >
-              <SelectTrigger id="device-object" class="w-full">
-                <SelectValue placeholder="Выберите объект" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="item in objects" :key="item.object_id" :value="item.object_id">
-                  {{ item.object_id }} · устройств: {{ item.devices_count }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <form class="mb-6 flex flex-wrap items-end gap-3" @submit.prevent="load">
-            <div class="min-w-64 flex-1 space-y-2">
-              <Label for="object-id">UUID объекта</Label>
-              <Input
-                id="object-id"
-                v-model="objectId"
-                required
-                placeholder="Идентификатор объекта из реестра"
-              />
+    <div>
+      <h1 class="text-2xl font-bold">Устройства</h1>
+      <p class="text-muted-foreground">
+        Выберите устройство, посмотрите показания и отправьте команду.
+      </p>
+    </div>
+    <p v-if="auth.user?.role !== 'admin'">Доступ предоставляется администратору.</p>
+    <template v-else>
+      <div class="flex flex-wrap items-end gap-3">
+        <WorkspacePicker />
+        <div class="flex-1 sm:min-w-64">
+          <label for="device-search" class="sr-only">Поиск устройств</label>
+          <Input id="device-search" v-model="query" placeholder="Найти лифт, датчик, термостат…" />
+        </div>
+        <Button
+          variant="outline"
+          :disabled="workspace.loading || workspace.preparing"
+          @click="workspace.refresh()"
+        >
+          Обновить
+        </Button>
+      </div>
+      <Alert v-if="workspace.error" variant="destructive">
+        <AlertDescription>{{ workspace.error }}</AlertDescription>
+      </Alert>
+      <div v-if="workspace.loading" class="grid gap-4 md:grid-cols-3" role="status">
+        <span class="sr-only">Загрузка устройств</span>
+        <Skeleton v-for="n in 3" :key="n" class="h-48 w-full" />
+      </div>
+      <DemoSetup v-else-if="!workspace.objects.length" />
+      <Empty v-else-if="!filtered.length">
+        <EmptyHeader>
+          <EmptyDescription>
+            {{
+              query
+                ? 'По запросу ничего не найдено. Попробуйте другое название.'
+                : 'Устройства пока не подключены.'
+            }}
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+      <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Card v-for="device in filtered" :key="device.id" class="flex flex-col">
+          <CardHeader>
+            <div class="flex items-start justify-between gap-3">
+              <CardTitle>{{ deviceName(device) }}</CardTitle>
+              <Badge :variant="device.status === 'error' ? 'destructive' : 'outline'">
+                {{ formatDeviceStatus(device.status) }}
+              </Badge>
             </div>
-            <div class="min-w-64 flex-1 space-y-2">
-              <Label for="room-id">UUID помещения (необязательно)</Label>
-              <Input id="room-id" v-model="roomId" />
-            </div>
-            <Button type="submit" :disabled="pending">
-              {{ pending ? 'Загрузка…' : 'Загрузить' }}
+            <CardDescription>{{ deviceTypeLabel(device.device_type) }}</CardDescription>
+          </CardHeader>
+          <CardContent class="flex-1 space-y-3">
+            <p class="text-lg font-medium">
+              {{ primaryReading(device, workspace.states[device.id]) }}
+            </p>
+            <p class="text-sm text-muted-foreground">
+              Последняя связь: {{ formatDateTime(device.last_seen_at) }}
+            </p>
+            <p class="text-sm">Доступно показателей: {{ device.signals.length }}</p>
+            <Collapsible>
+              <CollapsibleTrigger class="text-xs text-muted-foreground underline">
+                Технические сведения
+              </CollapsibleTrigger>
+              <CollapsibleContent class="break-all pt-2 text-xs text-muted-foreground">
+                UUID: {{ device.id }}
+                <br />
+                Внешний код: {{ device.external_id }}
+              </CollapsibleContent>
+            </Collapsible>
+          </CardContent>
+          <CardFooter>
+            <Button as-child class="w-full">
+              <NuxtLink :to="'/devices/' + device.id">Показания и управление</NuxtLink>
             </Button>
-          </form>
-          <Alert v-if="error" variant="destructive">
-            <AlertDescription>{{ error }}</AlertDescription>
-          </Alert>
-          <Empty v-if="!loaded && !pending && !discovering && !error">
-            <EmptyHeader>
-              <EmptyDescription>
-                {{
-                  objects.length
-                    ? 'Выберите объект из списка или укажите его UUID.'
-                    : 'Устройств пока нет. Сначала импортируйте эмуляторы в разделе «Подключения».'
-                }}
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-          <div v-if="loaded" class="overflow-x-auto rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Устройство</TableHead>
-                  <TableHead>Тип</TableHead>
-                  <TableHead>Доступность</TableHead>
-                  <TableHead>Последняя связь</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow v-for="device in devices" :key="device.id">
-                  <TableCell>
-                    <p class="font-medium">{{ device.name }}</p>
-                    <p class="text-xs text-muted-foreground">{{ device.external_id }}</p>
-                  </TableCell>
-                  <TableCell>{{ device.device_type }}</TableCell>
-                  <TableCell>
-                    <Badge :variant="device.status === 'error' ? 'destructive' : 'outline'">
-                      {{ statusNames[device.status] || device.status }}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{{ device.last_seen_at || 'Нет данных' }}</TableCell>
-                  <TableCell>
-                    <Button variant="outline" size="sm" as-child>
-                      <NuxtLink
-                        :to="{
-                          path: '/devices/' + device.id,
-                          query: { object_id: objectId, ...(roomId ? { room_id: roomId } : {}) },
-                        }"
-                      >
-                        Подробнее
-                      </NuxtLink>
-                    </Button>
-                  </TableCell>
-                </TableRow>
-                <TableEmpty v-if="!devices.length" :colspan="5">
-                  <Empty>
-                    <EmptyHeader>
-                      <EmptyDescription>Устройства не зарегистрированы</EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
-                </TableEmpty>
-              </TableBody>
-            </Table>
-          </div>
-        </template>
-      </CardContent>
-    </Card>
+          </CardFooter>
+        </Card>
+      </div>
+    </template>
   </div>
 </template>

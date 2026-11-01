@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatFullName, formatUserRole } from '~/utils/format'
 import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -90,10 +91,10 @@ onMounted(() => {
               <TableBody>
                 <TableRow v-for="user in filtered" :key="user.id">
                   <TableCell>
-                    {{ [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Без имени' }}
+                    {{ formatFullName(user.first_name, user.last_name) }}
                   </TableCell>
                   <TableCell>{{ user.email }}</TableCell>
-                  <TableCell>{{ user.role === 'admin' ? 'Администратор' : 'Клиент' }}</TableCell>
+                  <TableCell>{{ formatUserRole(user.role) }}</TableCell>
                   <TableCell>{{ user.is_active ? 'Активен' : 'Отключён' }}</TableCell>
                 </TableRow>
                 <TableEmpty v-if="!pending && !filtered.length" :colspan="4">

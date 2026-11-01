@@ -67,7 +67,7 @@ async function signOut() {
         <DropdownMenuTrigger as-child>
           <Button variant="ghost" class="h-auto gap-2 px-2 py-1.5">
             <Avatar class="size-8">
-              <AvatarFallback>{{ auth.displayName.charAt(0).toUpperCase() }}</AvatarFallback>
+              <AvatarFallback>{{ auth.initials }}</AvatarFallback>
             </Avatar>
             <span class="hidden text-left sm:block">
               <span class="block text-sm font-medium">{{ auth.displayName }}</span>

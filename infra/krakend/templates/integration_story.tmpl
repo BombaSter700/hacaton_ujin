@@ -1,4 +1,42 @@
 {
+  "endpoint": "/api/v1/integrations/demo",
+  "method": "GET",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "INTEGRATION_SERVICE_URL" | default "http://programmisto_integration:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/integrations/demo",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/v1/integrations/demo",
+  "method": "POST",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "INTEGRATION_SERVICE_URL" | default "http://programmisto_integration:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/integrations/demo",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
   "endpoint": "/api/v1/integrations/",
   "method": "GET",
   "output_encoding": "no-op",

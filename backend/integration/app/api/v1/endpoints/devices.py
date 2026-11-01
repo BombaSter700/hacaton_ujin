@@ -14,6 +14,7 @@ from app.api.v1.schemas.device_definition import DeviceDefinition
 from app.api.v1.schemas.scenario import ScenarioCreate
 from app.services.scenario_validation import validate_definition
 from pydantic import BaseModel
+from app.services.demo import get_demo_context
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 
@@ -21,6 +22,7 @@ router = APIRouter(prefix="/devices", tags=["devices"])
 class DeviceObjectResponse(BaseModel):
     object_id: UUID
     devices_count: int
+    name: str
 
 
 @router.get("/objects", response_model=List[DeviceObjectResponse])
@@ -34,8 +36,16 @@ def read_device_objects(
         .order_by(Device.object_id)
         .all()
     )
+    demo = get_demo_context(db)
     return [
-        {"object_id": object_id, "devices_count": count} for object_id, count in rows
+        {
+            "object_id": object_id,
+            "devices_count": count,
+            "name": demo["name"]
+            if object_id == demo["object_id"]
+            else f"Объект {index + 1}",
+        }
+        for index, (object_id, count) in enumerate(rows)
     ]
 
 

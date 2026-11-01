@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatDateTime } from '~/utils/format'
 import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -68,7 +69,8 @@ onMounted(load)
           <div>
             <p>Сессия #{{ session.id }} {{ session.is_current ? '(текущая)' : '' }}</p>
             <p class="text-sm text-muted-foreground">
-              Создана: {{ session.created_at }} · Действует до: {{ session.expires_at }}
+              Создана: {{ formatDateTime(session.created_at) }} · Действует до:
+              {{ formatDateTime(session.expires_at) }}
             </p>
           </div>
           <Button variant="outline" :disabled="pending" @click="revoke(session)">Завершить</Button>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { deviceName, signalName } from '~/utils/device-labels'
+import { sanitizeName } from '~/utils/sanitize'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
@@ -31,10 +33,10 @@ const pending = ref(false)
 const error = ref('')
 const success = ref('')
 function edit() {
-  name.value = props.device.name
+  name.value = deviceName(props.device)
   signals.value = props.device.signals.map((s) => ({
     id: s.id,
-    name: s.name,
+    name: signalName(s),
     value_type: s.value_type,
     unit: s.unit || '',
     is_writable: s.is_writable,
@@ -58,10 +60,10 @@ async function save() {
   error.value = ''
   try {
     const result = await saveDeviceDefinition(props.device.id, {
-      name: name.value.trim(),
+      name: sanitizeName(name.value),
       signals: signals.value.map((s) => ({
         id: s.id,
-        name: s.name.trim(),
+        name: sanitizeName(s.name),
         value_type: s.value_type,
         unit: s.unit.trim() || null,
         is_writable: s.is_writable,

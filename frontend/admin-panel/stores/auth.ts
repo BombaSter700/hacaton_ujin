@@ -3,19 +3,22 @@ import { computed, ref } from 'vue'
 import * as api from '~/utils/api/auth'
 import { ApiError, tokenStore } from '~/utils/api/httpClient'
 import type { LoginRequest, User } from '~/types/auth'
+import { formatFullName, formatInitials, formatUserRole } from '~/utils/format'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const initialized = ref(false)
   const sessionError = ref('')
   let initializing: Promise<void> | null = null
-  const displayName = computed(
-    () =>
-      [user.value?.first_name, user.value?.last_name].filter(Boolean).join(' ') ||
-      user.value?.email ||
-      '',
+  const displayName = computed(() =>
+    formatFullName(user.value?.first_name, user.value?.last_name, user.value?.email || ''),
   )
-  const roleName = computed(() => (user.value?.role === 'admin' ? 'Администратор' : 'Клиент'))
+  const roleName = computed(() => (user.value ? formatUserRole(user.value.role) : ''))
+  const initials = computed(() =>
+    formatInitials(user.value?.first_name, user.value?.last_name) === '?'
+      ? user.value?.email.charAt(0).toUpperCase() || '?'
+      : formatInitials(user.value?.first_name, user.value?.last_name),
+  )
   function reset() {
     tokenStore.clear()
     user.value = null
@@ -78,6 +81,7 @@ export const useAuthStore = defineStore('auth', () => {
     sessionError,
     displayName,
     roleName,
+    initials,
     initialize,
     login,
     demoLogin,

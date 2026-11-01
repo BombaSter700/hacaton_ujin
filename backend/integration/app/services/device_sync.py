@@ -8,6 +8,18 @@ from app.models.device import Device, Signal, DeviceStatus
 from app.models.integration import Integration
 from app.core.config import settings
 
+DEVICE_NAMES = {
+    "leak": "Датчик протечки",
+    "barrier": "Шлагбаум",
+    "thermostat": "Термостат",
+    "elevator": "Лифт",
+    "hub": "Центр защиты от протечек",
+    "counter": "Счётчик",
+    "ventilation": "Вентиляция",
+    "fire": "Пожарный датчик",
+    "light": "Освещение",
+}
+
 
 async def sync_emulators(db: Session, integration: Integration, object_id):
     host = urlsplit(settings.emulator_fleet_url).hostname
@@ -37,7 +49,7 @@ async def sync_emulators(db: Session, integration: Integration, object_id):
                     integration_id=integration.id,
                     external_id=item["serial"],
                     object_id=object_id,
-                    name=item["family"],
+                    name=DEVICE_NAMES.get(item["family"], item["family"]),
                     device_type=item["family"],
                     status=DeviceStatus.UNKNOWN,
                 )
@@ -46,6 +58,8 @@ async def sync_emulators(db: Session, integration: Integration, object_id):
             elif device.object_id != object_id:
                 raise ValueError("Fleet already belongs to another object")
             device.base_url = base_url
+            if device.name in (item["family"], "emul_" + item["family"]):
+                device.name = DEVICE_NAMES.get(item["family"], device.name)
             for data in declarations:
                 signal = (
                     db.query(Signal)
