@@ -371,3 +371,8 @@ scripts/generate_clickhouse_audit_mocks.py
 # Admin panel build context
 !frontend/admin-panel/.dockerignore
 !frontend/admin-panel/package-lock.json
+
+# Deployment secrets and integration migrations config
+.env.staging
+.env.prod
+!backend/integration/alembic.ini

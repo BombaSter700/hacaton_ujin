@@ -4,7 +4,8 @@
       "targets": [
         "programmisto_admin_panel",
         "programmisto_auth",
-        "programmisto_emulators"
+        "programmisto_emulators",
+        "programmisto_integration"
       ]
     }
   },
@@ -34,6 +35,16 @@
       "dockerfile": "Dockerfile",
       "tags": [
         "${DOCKER_REGISTRY}/programmisto_emulators:${IMAGE_TAG}"
+      ],
+      "platforms": [
+        "${TARGET_PLATFORM}"
+      ]
+    },
+    "programmisto_integration": {
+      "context": "backend",
+      "dockerfile": "integration/Dockerfile",
+      "tags": [
+        "${DOCKER_REGISTRY}/programmisto_integration:${IMAGE_TAG}"
       ],
       "platforms": [
         "${TARGET_PLATFORM}"

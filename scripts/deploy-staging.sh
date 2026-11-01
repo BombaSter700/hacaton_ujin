@@ -13,7 +13,7 @@ release_dir="$(pwd -P)"
 deploy_root="$(realpath "$deploy_root")"
 [[ "$release_dir" == "$deploy_root"/releases/* ]]
 [[ -f "$deploy_root/.env.staging" ]]
-[[ -f "$release_dir/compose.staging.yml" ]]
+[[ -f "$release_dir/docker-compose.prod.yml" ]]
 
 # Also prevent overlapping manual deployments on the VPS.
 exec 9>"$deploy_root/.deploy.lock"
@@ -21,15 +21,16 @@ flock -n 9 || { echo "Another deployment is running" >&2; exit 1; }
 printf 'DOCKER_REGISTRY=%s\nIMAGE_TAG=%s\n' "$registry" "$image_tag" > "$release_dir/.image.env"
 compose=(docker compose --project-name programmisto-staging
          --env-file "$deploy_root/.env.staging" --env-file "$release_dir/.image.env"
-         -f "$release_dir/compose.staging.yml")
+         -f "$release_dir/docker-compose.prod.yml")
 "${compose[@]}" config --quiet
-"${compose[@]}" pull
-if ! "${compose[@]}" up -d --no-build --wait --wait-timeout 180; then
+"${compose[@]}" pull --policy always
+if ! "${compose[@]}" up -d --no-build --pull never --wait --wait-timeout 180; then
     "${compose[@]}" ps -a
     echo "Deployment failed. current symlink was not promoted; inspect container logs." >&2
     exit 1
 fi
 "${compose[@]}" exec -T programmisto_auth python -m alembic current
+"${compose[@]}" exec -T programmisto_integration python -m alembic current
 previous="$(readlink -f "$deploy_root/current" 2>/dev/null || true)"
 if [[ -n "$previous" && "$previous" != "$release_dir" && "$previous" == "$deploy_root"/releases/* ]]; then
     ln -sfnT -- "$previous" "$deploy_root/previous"
