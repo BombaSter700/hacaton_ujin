@@ -7,7 +7,7 @@ import { createApp } from "vue"
 import { ChartTooltip } from "."
 
 const props = withDefaults(defineProps<{
-  colors: string[]
+  colors?: string[]
   index: string
   items: BulletLegendItemInterface[]
   customTooltip?: Component
@@ -15,7 +15,6 @@ const props = withDefaults(defineProps<{
   colors: () => [],
 })
 
-// Use weakmap to store reference to each datapoint for Tooltip
 const wm = new WeakMap()
 function template(d: any) {
   if (wm.has(d)) {

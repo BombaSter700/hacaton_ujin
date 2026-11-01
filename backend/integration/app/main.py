@@ -1,6 +1,7 @@
 """
 Интеграционный сервис Service - Main Application
 """
+
 from contextlib import asynccontextmanager
 import logging
 from fastapi import FastAPI
@@ -16,6 +17,7 @@ import asyncio
 
 logger = logging.getLogger("uvicorn")
 logging.basicConfig(level=logging.INFO)
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -46,7 +48,6 @@ async def lifespan(_: FastAPI):
         logger.info("✅ Shutdown complete.")
 
 
-# Create FastAPI app
 app = FastAPI(
     title="Integration Service API",
     description="Сервис для интеграции с внешними системами, включая 1C и подобное.",
@@ -60,9 +61,7 @@ app = FastAPI(
 
 # CORS is handled by KrakenD gateway, no need to set it here
 
-# Include routers
 app.include_router(health.router, prefix="/health", tags=["health"])
 app.include_router(api_router, prefix="/api/v1")
 
-# Prometheus metrics
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")

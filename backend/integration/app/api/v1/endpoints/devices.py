@@ -28,8 +28,15 @@ def read_device_objects(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_user_info),
 ):
-    rows = db.query(Device.object_id, func.count(Device.id)).group_by(Device.object_id).order_by(Device.object_id).all()
-    return [{"object_id": object_id, "devices_count": count} for object_id, count in rows]
+    rows = (
+        db.query(Device.object_id, func.count(Device.id))
+        .group_by(Device.object_id)
+        .order_by(Device.object_id)
+        .all()
+    )
+    return [
+        {"object_id": object_id, "devices_count": count} for object_id, count in rows
+    ]
 
 
 @router.get("/", response_model=List[DeviceResponse])
@@ -80,29 +87,49 @@ def update_device_metadata(
 
 
 @router.put("/{device_id}/definition", response_model=DeviceResponse)
-def update_device_definition(device_id: UUID, payload: DeviceDefinition, db: Session = Depends(get_db), user: dict = Depends(get_user_info)):
+def update_device_definition(
+    device_id: UUID,
+    payload: DeviceDefinition,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_user_info),
+):
     device = db.query(Device).filter(Device.id == device_id).with_for_update().first()
     if not device:
         raise HTTPException(404, "Device not found")
     signals = {signal.id: signal for signal in device.signals}
     if set(signals) != {signal.id for signal in payload.signals}:
-        raise HTTPException(422, "Provide exactly the existing device signals; import new capabilities from the device")
+        raise HTTPException(
+            422,
+            "Provide exactly the existing device signals; import new capabilities from the device",
+        )
     for definition in payload.signals:
         signal = signals[definition.id]
         if definition.is_writable and not signal.source_is_writable:
-            raise HTTPException(422, f"{signal.name}: device does not support writing this signal")
+            raise HTTPException(
+                422, f"{signal.name}: device does not support writing this signal"
+            )
         for key, value in definition.model_dump(exclude={"id"}).items():
             setattr(signal, key, value)
         signal.is_customized = True
     device.name = payload.name
     # Do not silently invalidate enabled saved rules when changing signal types/ranges.
-    for scenario in db.query(Scenario).filter_by(object_id=device.object_id, enabled=True).all():
-        if any(item.get("device_id") == str(device.id) for item in scenario.conditions + scenario.actions):
+    for scenario in (
+        db.query(Scenario).filter_by(object_id=device.object_id, enabled=True).all()
+    ):
+        if any(
+            item.get("device_id") == str(device.id)
+            for item in scenario.conditions + scenario.actions
+        ):
             try:
-                validate_definition(db, ScenarioCreate.model_validate(scenario, from_attributes=True))
+                validate_definition(
+                    db, ScenarioCreate.model_validate(scenario, from_attributes=True)
+                )
             except HTTPException as exc:
                 db.rollback()
-                raise HTTPException(409, f"Disable or edit scenario '{scenario.name}' first: {exc.detail}") from None
+                raise HTTPException(
+                    409,
+                    f"Disable or edit scenario '{scenario.name}' first: {exc.detail}",
+                ) from None
     db.commit()
     db.refresh(device)
     return device

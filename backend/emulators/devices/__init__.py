@@ -1,4 +1,5 @@
 """Набор эмуляторов устройств."""
+
 from .leak_sensor import LeakSensor
 from .barrier import Barrier
 from .thermostat import Thermostat

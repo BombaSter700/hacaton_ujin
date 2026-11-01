@@ -3,6 +3,7 @@
 Датчики шлют хабу сообщения через внутреннюю очередь процесса; в Ujin публикуется
 один агрегат: leak (max по датчикам), sensors_online, battery (min).
 """
+
 from __future__ import annotations
 
 from collections import deque
@@ -34,17 +35,52 @@ class LeakHub(Device):
         super().__init__(*args, **kwargs)
         self.internal_queue = deque()
         self.sensors = [InternalSensor(i + 1, self) for i in range(sensors)]
-        self.add_signal(Signal("leak", "Протечка (агрегат)", "list", "r", "property", 0,
-                               layout={0: "нет", 1: "протечка"}))
-        self.add_signal(Signal("leak_sensors", "Датчики (битовая маска)", "text", "r",
-                               "property", "0"))
-        self.add_signal(Signal("sensors_online", "Датчиков онлайн", "counter", "r",
-                               "property", sensors, "", 0, sensors))
-        self.add_signal(Signal("sensors_total", "Датчиков всего", "counter", "r",
-                               "system", sensors))
-        self.add_signal(Signal("mute", "Заглушить сирену", "switch", "rw", "capability", 0))
-        self.add_signal(Signal("siren", "Сирена", "list", "r", "property", 0,
-                               layout={0: "выкл", 1: "звучит"}))
+        self.add_signal(
+            Signal(
+                "leak",
+                "Протечка (агрегат)",
+                "list",
+                "r",
+                "property",
+                0,
+                layout={0: "нет", 1: "протечка"},
+            )
+        )
+        self.add_signal(
+            Signal(
+                "leak_sensors", "Датчики (битовая маска)", "text", "r", "property", "0"
+            )
+        )
+        self.add_signal(
+            Signal(
+                "sensors_online",
+                "Датчиков онлайн",
+                "counter",
+                "r",
+                "property",
+                sensors,
+                "",
+                0,
+                sensors,
+            )
+        )
+        self.add_signal(
+            Signal("sensors_total", "Датчиков всего", "counter", "r", "system", sensors)
+        )
+        self.add_signal(
+            Signal("mute", "Заглушить сирену", "switch", "rw", "capability", 0)
+        )
+        self.add_signal(
+            Signal(
+                "siren",
+                "Сирена",
+                "list",
+                "r",
+                "property",
+                0,
+                layout={0: "выкл", 1: "звучит"},
+            )
+        )
 
     def sensor(self, idx: int) -> InternalSensor:
         return self.sensors[idx - 1]
@@ -61,7 +97,9 @@ class LeakHub(Device):
     def tick(self, dt: int) -> None:
         while self.internal_queue:
             idx, kind, value = self.internal_queue.popleft()
-            self.log(f"[{self.model}] внутренняя коммутация: датчик {idx} {kind}={value}")
+            self.log(
+                f"[{self.model}] внутренняя коммутация: датчик {idx} {kind}={value}"
+            )
         wet_mask = "".join("1" if s.wet else "0" for s in self.sensors)
         online = sum(1 for s in self.sensors if s.online)
         self.set_value("leak", 1 if any(s.wet for s in self.sensors) else 0)

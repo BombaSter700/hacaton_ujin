@@ -1,4 +1,3 @@
-
 <script setup lang="ts">
 type SmartIconName =
   | 'smart-home'
@@ -10,12 +9,15 @@ type SmartIconName =
   | 'automation'
   | 'telemetry'
 
-const props = withDefaults(defineProps<{
-  name: SmartIconName
-  size?: number
-}>(), {
-  size: 24,
-})
+const props = withDefaults(
+  defineProps<{
+    name: SmartIconName
+    size?: number
+  }>(),
+  {
+    size: 24,
+  },
+)
 
 const config = useRuntimeConfig()
 

@@ -1,4 +1,3 @@
-
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineNuxtConfig({
@@ -14,7 +13,12 @@ export default defineNuxtConfig({
       htmlAttrs: { lang: 'ru' },
       link: [
         { rel: 'manifest', href: '/admin/manifest.json' },
-        { rel: 'icon', type: 'image/x-icon', sizes: '16x16 32x32 48x48', href: '/admin/favicon.ico' },
+        {
+          rel: 'icon',
+          type: 'image/x-icon',
+          sizes: '16x16 32x32 48x48',
+          href: '/admin/favicon.ico',
+        },
         { rel: 'apple-touch-icon', sizes: '192x192', href: '/admin/icons/icon-192x192.png' },
       ],
       meta: [{ name: 'theme-color', content: '#171717' }],
@@ -23,31 +27,16 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiUrl: '',
-      wsPort: ''
-    }
+      wsPort: '',
+    },
   },
-  css: [
-    '~/assets/css/tailwind.css'
-  ],
+  css: ['~/assets/css/tailwind.css'],
   vite: {
-    plugins: [
-      tailwindcss(),
-    ],
+    plugins: [tailwindcss()],
   },
-  modules: [
-    'shadcn-nuxt', 
-    '@pinia/nuxt'
-
-  ],
+  modules: ['shadcn-nuxt', '@pinia/nuxt'],
   shadcn: {
-    /**
-     * Prefix for all the imported component
-     */
     prefix: '',
-    /**
-     * Directory that the component lives in.
-     * @default "./components/ui"
-     */
-    componentDir: './components/ui'
-  }
+    componentDir: './components/ui',
+  },
 })

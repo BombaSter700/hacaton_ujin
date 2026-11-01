@@ -20,6 +20,7 @@ class AuthServiceSettings(BaseSettings):
     app_name: str = "auth"
     app_version: str = "0.1.0"
     debug: bool = False
+    demo_login_enabled: bool = False
     database_url: str = Field(repr=False)
     db_pool_size: int = Field(default=5, ge=1)
     db_max_overflow: int = Field(default=10, ge=0)

@@ -10,5 +10,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     void nuxtApp.runWithContext(() => navigateTo('/login'))
   }
   window.addEventListener('programmisto:unauthorized', onUnauthorized)
-  nuxtApp.vueApp.onUnmount(() => window.removeEventListener('programmisto:unauthorized', onUnauthorized))
+  nuxtApp.vueApp.onUnmount(() =>
+    window.removeEventListener('programmisto:unauthorized', onUnauthorized),
+  )
 })

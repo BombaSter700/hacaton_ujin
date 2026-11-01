@@ -21,15 +21,17 @@ class StateRepository:
         if self.redis:
             await self.redis.close()
 
-    async def update_state(self, device_id: str, state_data: Dict[str, Any], quality: str = "good"):
+    async def update_state(
+        self, device_id: str, state_data: Dict[str, Any], quality: str = "good"
+    ):
         if not self.redis:
             return
-            
+
         key = f"iot:device:{device_id}:state"
         data = {
             "state": json.dumps(state_data),
             "received_at": datetime.now(timezone.utc).isoformat(),
-            "quality": quality
+            "quality": quality,
         }
         async with self.redis.pipeline(transaction=True) as pipe:
             pipe.hset(key, mapping=data)
@@ -39,16 +41,17 @@ class StateRepository:
     async def get_state(self, device_id: str) -> Dict[str, Any]:
         if not self.redis:
             return {}
-            
+
         key = f"iot:device:{device_id}:state"
         data = await self.redis.hgetall(key)
         if not data:
             return {}
-            
+
         return {
             "signals": json.loads(data["state"]),
             "received_at": data["received_at"],
-            "quality": data["quality"]
+            "quality": data["quality"],
         }
+
 
 state_repo = StateRepository()

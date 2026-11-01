@@ -1,12 +1,11 @@
 import asyncio
 import logging
-import json
-from datetime import datetime, timezone
 from typing import Dict, Any, List
 import clickhouse_connect
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
 
 class AnalyticsWriter:
     def __init__(self):
@@ -23,7 +22,7 @@ class AnalyticsWriter:
                 username=settings.clickhouse_user,
                 password=settings.clickhouse_password,
                 database=settings.clickhouse_db,
-                connect_timeout=5
+                connect_timeout=5,
             )
             logger.info("Connected to ClickHouse")
         except Exception as e:
@@ -56,7 +55,7 @@ class AnalyticsWriter:
     async def _flush_loop(self):
         """Бесконечный цикл записи батчами"""
         while self.is_running:
-            await asyncio.sleep(1.0) # Собираем данные раз в секунду
+            await asyncio.sleep(1.0)  # Собираем данные раз в секунду
             await self._flush_batch()
 
     async def _flush_batch(self):
@@ -83,11 +82,12 @@ class AnalyticsWriter:
                     self.client.insert,
                     table,
                     [[row.get(key) for key in rows[0]] for row in rows],
-                    column_names=list(rows[0].keys())
+                    column_names=list(rows[0].keys()),
                 )
                 logger.debug(f"Inserted {len(rows)} rows into {table}")
             except Exception as e:
                 logger.error(f"Failed to insert into {table}: {e}")
+
 
 # Глобальный экземпляр
 analytics = AnalyticsWriter()

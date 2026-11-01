@@ -1,6 +1,8 @@
 """Email/password login and public registration with a fixed client role."""
 
 from datetime import datetime, timedelta, timezone
+from secrets import token_urlsafe
+from uuid import uuid4
 
 import jwt
 from passlib.context import CryptContext
@@ -52,6 +54,21 @@ def authenticate_user(db: Session, data):
         or not user.is_active
     ):
         raise InvalidCredentialsException()
+    return user
+
+
+def create_demo_admin(db: Session):
+    """Create a separate presentation account; never expose its random password."""
+    user = User(
+        email=f"demo-{uuid4().hex}@demo.example.com",
+        hashed_password=get_password_hash(token_urlsafe(32)),
+        role="admin",
+        is_active=True,
+    )
+    user.profile = UserProfile(first_name="Тестовый", last_name="администратор")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
     return user
 
 

@@ -15,6 +15,7 @@ class FleetConfigTest(unittest.TestCase):
 
     def test_default_fleet_contains_all_families(self):
         from backend.emulators.devices import REGISTRY
+
         path = Path(__file__).parents[1] / "fleet.json"
         devices = load_config(path, 8098)
         self.assertEqual({d["family"] for d in devices}, set(REGISTRY))
@@ -30,8 +31,11 @@ class FleetConfigTest(unittest.TestCase):
                 self.load([first, second])
 
     def test_invalid_device_configuration_is_rejected(self):
-        for devices in ([], [{"family": "unknown", "serial": "one", "port": 8099}],
-                        [{"family": "leak", "serial": "", "port": 8099}],
-                        [{"family": "leak", "serial": "one", "port": -1}]):
+        for devices in (
+            [],
+            [{"family": "unknown", "serial": "one", "port": 8099}],
+            [{"family": "leak", "serial": "", "port": 8099}],
+            [{"family": "leak", "serial": "one", "port": -1}],
+        ):
             with self.subTest(devices=devices), self.assertRaises(ValueError):
                 self.load(devices)

@@ -15,9 +15,15 @@ class SignalDefinition(StrictModel):
 
     @model_validator(mode="after")
     def validate_range(self):
-        if self.value_type != "number" and (self.min_value is not None or self.max_value is not None):
+        if self.value_type != "number" and (
+            self.min_value is not None or self.max_value is not None
+        ):
             raise ValueError("Only numeric signals have a range")
-        if self.min_value is not None and self.max_value is not None and self.min_value > self.max_value:
+        if (
+            self.min_value is not None
+            and self.max_value is not None
+            and self.min_value > self.max_value
+        ):
             raise ValueError("Minimum must not exceed maximum")
         return self
 

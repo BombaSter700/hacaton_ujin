@@ -20,7 +20,7 @@ def _load(path, name):
 class TestBuildSource(unittest.TestCase):
     def test_three_groups_in_skeleton(self):
         code = nd.build_source("valve", "Клапан", [dict(s) for s in nd._EXAMPLE])
-        self.assertIn('class ValveDevice(Device)', code)
+        self.assertIn("class ValveDevice(Device)", code)
         self.assertIn("свойство", code)  # в докстринге подсказка про группы
         for kw in ("tick", "on_command", "add_signal"):
             self.assertIn(kw, code)
@@ -36,7 +36,9 @@ class TestScaffold(unittest.TestCase):
     def test_scaffold_compiles_and_groups(self):
         tmp = tempfile.mkdtemp(prefix="nd_")
         try:
-            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            sys.path.insert(
+                0, os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            )
             path, code = nd.scaffold("valve", "Клапан", dest_dir=tmp)
             compile(code, path, "exec")
             self.assertIn("emul_valve", code)

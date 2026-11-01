@@ -37,5 +37,7 @@ async def ready():
             raise RuntimeError("Redis is not connected")
         await state_repo.redis.ping()
     except Exception:
-        return JSONResponse(status_code=503, content={"status": "unavailable", "redis": "unavailable"})
+        return JSONResponse(
+            status_code=503, content={"status": "unavailable", "redis": "unavailable"}
+        )
     return {"status": "ok", "database": "ok", "redis": "ok", "service": "integration"}

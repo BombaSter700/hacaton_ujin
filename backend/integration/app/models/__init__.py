@@ -7,6 +7,7 @@ from .scenario import Scenario
 
 __all__ = [
     "Base",
+    "Scenario",
     "Integration",
     "IntegrationStatus",
     "Device",

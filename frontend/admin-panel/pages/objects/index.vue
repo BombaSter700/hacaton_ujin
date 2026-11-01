@@ -1,27 +1,72 @@
 <script setup lang="ts">
+import { Empty, EmptyHeader, EmptyDescription } from '@/components/ui/empty'
 import { Building2, MapPin, Plus, Search } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableEmpty,
+} from '@/components/ui/table'
 
 const search = ref('')
 const dialogOpen = ref(false)
 const name = ref('')
 const address = ref('')
 const objects = ref([
-  { id: 1, name: 'ЖК Северный · Корпус 1', address: 'ул. Северная, 12', devices: 32, status: 'Активен' },
-  { id: 2, name: 'ЖК Северный · Корпус 2', address: 'ул. Северная, 14', devices: 24, status: 'Активен' },
-  { id: 3, name: 'ЖК Центральный · Корпус 1', address: 'ул. Центральная, 8', devices: 31, status: 'Активен' },
+  {
+    id: 1,
+    name: 'ЖК Северный · Корпус 1',
+    address: 'ул. Северная, 12',
+    devices: 32,
+    status: 'Активен',
+  },
+  {
+    id: 2,
+    name: 'ЖК Северный · Корпус 2',
+    address: 'ул. Северная, 14',
+    devices: 24,
+    status: 'Активен',
+  },
+  {
+    id: 3,
+    name: 'ЖК Центральный · Корпус 1',
+    address: 'ул. Центральная, 8',
+    devices: 31,
+    status: 'Активен',
+  },
 ])
-const filtered = computed(() => objects.value.filter(o => `${o.name} ${o.address}`.toLowerCase().includes(search.value.toLowerCase())))
+const filtered = computed(() =>
+  objects.value.filter((o) =>
+    `${o.name} ${o.address}`.toLowerCase().includes(search.value.toLowerCase()),
+  ),
+)
 
 function addObject() {
   if (!name.value.trim() || !address.value.trim()) return
-  objects.value.push({ id: Date.now(), name: name.value.trim(), address: address.value.trim(), devices: 0, status: 'Новый' })
+  objects.value.push({
+    id: Date.now(),
+    name: name.value.trim(),
+    address: address.value.trim(),
+    devices: 0,
+    status: 'Новый',
+  })
   name.value = ''
   address.value = ''
   dialogOpen.value = false
@@ -30,7 +75,6 @@ function addObject() {
 
 <template>
   <div class="flex flex-col gap-6">
-   
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <div class="flex items-center gap-2">
@@ -39,15 +83,20 @@ function addObject() {
         </div>
         <p class="mt-1 text-sm text-muted-foreground">Список зданий под управлением УК.</p>
       </div>
-      
+
       <Dialog v-model:open="dialogOpen">
         <DialogTrigger as-child>
-          <Button><Plus class="mr-2 h-4 w-4" />Добавить объект</Button>
+          <Button>
+            <Plus class="mr-2 h-4 w-4" />
+            Добавить объект
+          </Button>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Новый объект</DialogTitle>
-            <DialogDescription>Объект добавится только в локальный демонстрационный список.</DialogDescription>
+            <DialogDescription>
+              Объект добавится только в локальный демонстрационный список.
+            </DialogDescription>
           </DialogHeader>
           <form class="flex flex-col gap-4" @submit.prevent="addObject">
             <div class="flex flex-col gap-2">
@@ -66,14 +115,12 @@ function addObject() {
       </Dialog>
     </div>
 
-  
     <Card>
       <CardHeader>
         <CardTitle class="text-base">Реестр объектов</CardTitle>
         <CardDescription>Данные представлены для демонстрации интерфейса</CardDescription>
       </CardHeader>
       <CardContent>
-
         <div class="relative mb-4 max-w-sm flex items-center">
           <Search class="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input v-model="search" class="pl-9" placeholder="Поиск по названию или адресу" />
@@ -108,13 +155,12 @@ function addObject() {
                   <Badge variant="secondary">{{ object.status }}</Badge>
                 </TableCell>
               </TableRow>
-              
-    
-              <TableRow v-if="!filtered.length">
-                <TableCell colspan="4" class="py-10 text-center text-muted-foreground">
-                  Объекты не найдены
-                </TableCell>
-              </TableRow>
+
+              <TableEmpty v-if="!filtered.length" :colspan="4">
+                <Empty>
+                  <EmptyHeader><EmptyDescription>Объекты не найдены</EmptyDescription></EmptyHeader>
+                </Empty>
+              </TableEmpty>
             </TableBody>
           </Table>
         </div>

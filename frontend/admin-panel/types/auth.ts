@@ -10,7 +10,10 @@ export interface User {
   created_at: string
   updated_at: string | null
 }
-export interface LoginRequest { email: string; password: string }
+export interface LoginRequest {
+  email: string
+  password: string
+}
 export type LoginCredentials = LoginRequest
 export interface RegisterRequest extends LoginRequest {
   first_name?: string | null
@@ -30,7 +33,9 @@ export interface TokenResponse {
   expires_in: number
   refresh_expires_in: number
 }
-export interface RefreshRequest { refresh_token: string }
+export interface RefreshRequest {
+  refresh_token: string
+}
 export interface UserSession {
   id: number
   is_active: boolean
@@ -39,6 +44,16 @@ export interface UserSession {
   last_activity_at: string
   expires_at: string
 }
-export interface SessionListResponse { sessions: UserSession[]; total: number }
-export interface ValidationIssue { loc: (string | number)[]; msg: string; type: string }
-export interface AuthError { detail: string | ValidationIssue[]; error_code?: string }
+export interface SessionListResponse {
+  sessions: UserSession[]
+  total: number
+}
+export interface ValidationIssue {
+  loc: (string | number)[]
+  msg: string
+  type: string
+}
+export interface AuthError {
+  detail: string | ValidationIssue[]
+  error_code?: string
+}

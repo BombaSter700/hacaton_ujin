@@ -129,6 +129,7 @@ services:
     environment:
       DATABASE_URL: ${AUTH_DATABASE_URL:?Set AUTH_DATABASE_URL in .env.prod}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.prod}
+      DEMO_LOGIN_ENABLED: ${DEMO_LOGIN_ENABLED:-false}
       DEBUG: ${AUTH_DEBUG:-false}
       CORS_ORIGINS: ${CORS_ORIGINS:-[]}
     depends_on:

@@ -1,4 +1,5 @@
 """Run independent local devices and expose their combined readiness on port 8098."""
+
 from __future__ import annotations
 
 import argparse
@@ -56,7 +57,9 @@ def main():
         result = dict(device, status="unhealthy")
         if child.poll() is None:
             try:
-                with urllib.request.urlopen(f"http://127.0.0.1:{device['port']}/state", timeout=2) as response:
+                with urllib.request.urlopen(
+                    f"http://127.0.0.1:{device['port']}/state", timeout=2
+                ) as response:
                     state = json.load(response)
                 if isinstance(state, dict) and state:
                     result["status"] = "healthy"
@@ -71,8 +74,12 @@ def main():
                 return
             with ThreadPoolExecutor(max_workers=len(devices)) as pool:
                 results = list(pool.map(check, list(children)))
-            healthy = len(results) == len(devices) and all(d["status"] == "healthy" for d in results)
-            body = json.dumps({"status": "healthy" if healthy else "unhealthy", "devices": results}).encode()
+            healthy = len(results) == len(devices) and all(
+                d["status"] == "healthy" for d in results
+            )
+            body = json.dumps(
+                {"status": "healthy" if healthy else "unhealthy", "devices": results}
+            ).encode()
             self.send_response(200 if healthy else 503)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
@@ -87,18 +94,33 @@ def main():
     failed = False
     try:
         for device in devices:
-            child = subprocess.Popen([
-                sys.executable, "-m", "backend.emulators.main", device["family"],
-                "--serial", device["serial"], "--port", str(device["port"]),
-                "--interval", str(args.interval),
-            ])
+            child = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-m",
+                    "backend.emulators.main",
+                    device["family"],
+                    "--serial",
+                    device["serial"],
+                    "--port",
+                    str(device["port"]),
+                    "--interval",
+                    str(args.interval),
+                ]
+            )
             children.append((device, child))
         threading.Thread(target=server.serve_forever, daemon=True).start()
         serving = True
-        print(f"Fleet started: {len(children)} devices; health port {args.health_port}", flush=True)
+        print(
+            f"Fleet started: {len(children)} devices; health port {args.health_port}",
+            flush=True,
+        )
         while not stopped.wait(0.5):
             if any(child.poll() is not None for _, child in children):
-                print("A device exited; stopping fleet so the container can restart", file=sys.stderr)
+                print(
+                    "A device exited; stopping fleet so the container can restart",
+                    file=sys.stderr,
+                )
                 failed = True
                 break
     finally:

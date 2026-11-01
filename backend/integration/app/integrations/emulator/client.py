@@ -19,10 +19,7 @@ class EmulatorAdapter:
     async def send_command(self, signal_name: str, value: Any) -> bool:
         """POST /command (application/x-www-form-urlencoded)"""
         async with httpx.AsyncClient(timeout=5.0) as client:
-            data = {
-                "signal": signal_name,
-                "value": str(value)
-            }
+            data = {"signal": signal_name, "value": str(value)}
             resp = await client.post(f"{self.base_url}/command", data=data)
             # Эмулятор может вернуть 200, даже если команда не применилась.
             if resp.status_code != 200:

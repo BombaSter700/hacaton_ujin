@@ -34,10 +34,7 @@ async def send_command(
 
     # Передаем управление сервису
     response = await command_service.process_command(
-        db=db,
-        device=device,
-        cmd_in=cmd_in,
-        user_id=current_user["user_id"]
+        db=db, device=device, cmd_in=cmd_in, user_id=current_user["user_id"]
     )
 
     return response

@@ -45,7 +45,7 @@ const props = withDefaults(defineProps<BaseMultiLineChartProps<T>>(), {
   numTicks: 6,
 })
 
-const resolveAccessor = <R>(accessor: Accessor<T, R>) => {
+const resolveAccessor = <R,>(accessor: Accessor<T, R>) => {
   if (typeof accessor === 'function') return accessor
   return (item: T) => item[accessor] as R
 }
@@ -62,10 +62,7 @@ const normalizedData = computed(() => {
   return props.data.map((item, index) => {
     const rawX = xGetter(item, index)
 
-    const xDate =
-      rawX instanceof Date
-        ? rawX
-        : new Date(rawX as string | number)
+    const xDate = rawX instanceof Date ? rawX : new Date(rawX as string | number)
 
     const normalized: Record<string, any> = {
       ...item,
@@ -85,9 +82,7 @@ const normalizedData = computed(() => {
 const xScale = Scale.scaleTime()
 
 const colors = computed(() =>
-  props.colors?.length
-    ? props.colors
-    : defaultColors(props.series.length),
+  props.colors?.length ? props.colors : defaultColors(props.series.length),
 )
 
 const legendItems = computed(() =>
@@ -99,52 +94,37 @@ const legendItems = computed(() =>
 
 const xGetter = (d: any) => d.__x
 
-const yGetters = computed(() =>
-  props.series.map((s) => (d: any) => d[s.key as string]),
-)
+const yGetters = computed(() => props.series.map((s) => (d: any) => d[s.key as string]))
 </script>
 
 <template>
-	<div :class="cn('w-full flex flex-col gap-2', $attrs.class ?? '')">
+  <div :class="cn('w-full flex flex-col gap-2', $attrs.class ?? '')">
+    <ul v-if="showLegend" class="mb-1 flex flex-wrap items-center gap-x-4 gap-y-2">
+      <li
+        v-for="item in legendItems"
+        :key="item.name"
+        class="flex items-center gap-2 text-sm text-muted-foreground"
+      >
+        <span class="size-2 rounded-full" :style="{ backgroundColor: item.color }" />
+        <span>{{ item.name }}</span>
+      </li>
+    </ul>
 
-		<ul v-if="showLegend" class="mb-1 flex flex-wrap items-center gap-x-4 gap-y-2">
-			<li
-				v-for="item in legendItems"
-				:key="item.name"
-				class="flex items-center gap-2 text-sm text-muted-foreground"
-			>
-				<span class="size-2 rounded-full" :style="{ backgroundColor: item.color }" />
-				<span>{{ item.name }}</span>
-			</li>
-		</ul>
+    <div v-if="!normalizedData.length" class="text-sm text-muted-foreground py-8 text-center">
+      Нет данных
+    </div>
 
-		<div v-if="!normalizedData.length" class="text-sm text-muted-foreground py-8 text-center">
-      		Нет данных
-    		</div>
+    <VisXYContainer v-else :data="normalizedData" :height="height" :x-scale="xScale">
+      <VisLine :x="xGetter" :y="yGetters" :color="colors" />
 
-		<VisXYContainer
-			v-else
-			:data="normalizedData"
-			:height="height"
-			:xScale="xScale"
-		>
-			<VisLine
-				:x="xGetter"
-				:y="yGetters"
-				:color="colors"
-			/>
+      <VisAxis
+        type="x"
+        label="Дата"
+        :num-ticks="numTicks"
+        :tick-format="xTickFormat ?? ((v: any) => new Date(v).toLocaleDateString())"
+      />
 
-			<VisAxis
-				type="x"
-				label="Дата"
-				:numTicks="numTicks"
-				:tickFormat="xTickFormat ?? ((v: any) => new Date(v).toLocaleDateString())"
-			/>
-
-			<VisAxis
-				type="y"
-				:label="yLabel"
-			/>
-		</VisXYContainer>
-	</div>
+      <VisAxis type="y" :label="yLabel" />
+    </VisXYContainer>
+  </div>
 </template>

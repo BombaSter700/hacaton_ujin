@@ -31,16 +31,20 @@ class CommandService:
                 db.query(CommandLog)
                 .filter(
                     CommandLog.user_id == user_id,
-                    CommandLog.idempotency_key == cmd_in.idempotency_key
+                    CommandLog.idempotency_key == cmd_in.idempotency_key,
                 )
                 .first()
             )
 
             if existing_cmd:
-                if existing_cmd.device_id != device.id or existing_cmd.signal_id != cmd_in.signal_id or existing_cmd.value != {"value": cmd_in.value}:
+                if (
+                    existing_cmd.device_id != device.id
+                    or existing_cmd.signal_id != cmd_in.signal_id
+                    or existing_cmd.value != {"value": cmd_in.value}
+                ):
                     raise HTTPException(
                         status_code=status.HTTP_409_CONFLICT,
-                        detail="Idempotency key used for different command payload"
+                        detail="Idempotency key used for different command payload",
                     )
 
                 logger.info(f"Idempotent hit for key: {cmd_in.idempotency_key}")
@@ -60,7 +64,9 @@ class CommandService:
         )
 
         if not signal:
-            raise HTTPException(status_code=404, detail="Signal not found for this device")
+            raise HTTPException(
+                status_code=404, detail="Signal not found for this device"
+            )
 
         if not signal.is_writable:
             raise HTTPException(status_code=400, detail="This signal is read-only")
@@ -72,9 +78,13 @@ class CommandService:
 
         if isinstance(cmd_in.value, (int, float)):
             if signal.min_value is not None and cmd_in.value < signal.min_value:
-                raise HTTPException(status_code=400, detail=f"Value below minimum {signal.min_value}")
+                raise HTTPException(
+                    status_code=400, detail=f"Value below minimum {signal.min_value}"
+                )
             if signal.max_value is not None and cmd_in.value > signal.max_value:
-                raise HTTPException(status_code=400, detail=f"Value above maximum {signal.max_value}")
+                raise HTTPException(
+                    status_code=400, detail=f"Value above maximum {signal.max_value}"
+                )
 
         # Создаем запись в логе
         db_cmd = CommandLog(
@@ -84,7 +94,7 @@ class CommandService:
             value={"value": cmd_in.value},
             idempotency_key=cmd_in.idempotency_key,
             status=CommandStatus.PENDING,
-            created_at=datetime.now(timezone.utc)
+            created_at=datetime.now(timezone.utc),
         )
 
         try:
@@ -94,12 +104,30 @@ class CommandService:
         except IntegrityError:
             # Защита от Race Condition
             db.rollback()
-            existing = db.query(CommandLog).filter_by(user_id=user_id, idempotency_key=cmd_in.idempotency_key).first()
+            existing = (
+                db.query(CommandLog)
+                .filter_by(user_id=user_id, idempotency_key=cmd_in.idempotency_key)
+                .first()
+            )
             if existing is None:
-                raise HTTPException(409, "Command conflict; retry with a new key") from None
-            if existing.device_id != device.id or existing.signal_id != cmd_in.signal_id or existing.value != {"value": cmd_in.value}:
-                raise HTTPException(409, "Idempotency key used for different command payload")
-            return CommandResponse(command_id=existing.id, status=existing.status.value, message=existing.error_message, created_at=existing.created_at, completed_at=existing.completed_at)
+                raise HTTPException(
+                    409, "Command conflict; retry with a new key"
+                ) from None
+            if (
+                existing.device_id != device.id
+                or existing.signal_id != cmd_in.signal_id
+                or existing.value != {"value": cmd_in.value}
+            ):
+                raise HTTPException(
+                    409, "Idempotency key used for different command payload"
+                )
+            return CommandResponse(
+                command_id=existing.id,
+                status=existing.status.value,
+                message=existing.error_message,
+                created_at=existing.created_at,
+                completed_at=existing.completed_at,
+            )
 
         # Click House
         analytics.log_event(
@@ -115,8 +143,14 @@ class CommandService:
                 "entity_type": "device",
                 "entity_id": str(device.id),
                 "trace_id": None,
-                "context": json.dumps({"command_id": str(db_cmd.id), "signal_id": str(signal.id), "value": str(cmd_in.value)})
-            }
+                "context": json.dumps(
+                    {
+                        "command_id": str(db_cmd.id),
+                        "signal_id": str(signal.id),
+                        "value": str(cmd_in.value),
+                    }
+                ),
+            },
         )
 
         # Отправка в эмулятор и ПОДТВЕРЖДЕНИЕ
@@ -124,7 +158,11 @@ class CommandService:
             db_cmd.status = CommandStatus.FAILED
             db_cmd.error_message = "Device has no base_url configured"
             db.commit()
-            return CommandResponse(command_id=db_cmd.id, status=db_cmd.status.value, message=db_cmd.error_message)
+            return CommandResponse(
+                command_id=db_cmd.id,
+                status=db_cmd.status.value,
+                message=db_cmd.error_message,
+            )
 
         adapter = EmulatorAdapter(base_url=device.base_url)
         confirmed = False
@@ -135,7 +173,9 @@ class CommandService:
                 raise RuntimeError("Adapter rejected the command (HTTP error)")
 
             start_time = asyncio.get_event_loop().time()
-            while (asyncio.get_event_loop().time() - start_time) < settings.command_confirmation_timeout:
+            while (
+                asyncio.get_event_loop().time() - start_time
+            ) < settings.command_confirmation_timeout:
                 await asyncio.sleep(settings.command_confirmation_poll_interval)
                 state = await adapter.get_state()
 
@@ -146,7 +186,9 @@ class CommandService:
 
             if not confirmed:
                 db_cmd.status = CommandStatus.TIMEOUT
-                db_cmd.error_message = "Command sent but state was not confirmed in time"
+                db_cmd.error_message = (
+                    "Command sent but state was not confirmed in time"
+                )
             else:
                 db_cmd.status = CommandStatus.SUCCESS
 
@@ -172,8 +214,14 @@ class CommandService:
                 "actor_type": "user",
                 "entity_type": "device",
                 "entity_id": str(device.id),
-                "context": json.dumps({"command_id": str(db_cmd.id), "status": db_cmd.status.value, "error": db_cmd.error_message})
-            }
+                "context": json.dumps(
+                    {
+                        "command_id": str(db_cmd.id),
+                        "status": db_cmd.status.value,
+                        "error": db_cmd.error_message,
+                    }
+                ),
+            },
         )
 
         return CommandResponse(

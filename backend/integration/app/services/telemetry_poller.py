@@ -49,22 +49,44 @@ async def poll_device(device: Device, db: Session):
         db.commit()
 
         if was_offline:
-            analytics.log_event("device_events", {
-                "organization_id": integration.organization_id, "building_id": device.object_id,
-                "device_id": device.id, "event_id": uuid.uuid4(),
-                "event_type": "connected", "severity": "info",
-                "occurred_at": now, "payload": "{}"
-            })
+            analytics.log_event(
+                "device_events",
+                {
+                    "organization_id": integration.organization_id,
+                    "building_id": device.object_id,
+                    "device_id": device.id,
+                    "event_id": uuid.uuid4(),
+                    "event_type": "connected",
+                    "severity": "info",
+                    "occurred_at": now,
+                    "payload": "{}",
+                },
+            )
 
         for sig_name, val in signals_data.items():
             if isinstance(val, (int, float, bool)):
-                analytics.log_event("telemetry", {
-                    "organization_id": integration.organization_id, "building_id": device.object_id,
-                    "device_id": device.id, "metric": sig_name,
-                    "event_id": uuid.uuid4(), "measured_at": now,
-                    "received_at": now, "value": float(val), "quality": "good",
-                    "unit": next((s.unit or "" for s in device.signals if s.external_signal_id == sig_name), "")
-                })
+                analytics.log_event(
+                    "telemetry",
+                    {
+                        "organization_id": integration.organization_id,
+                        "building_id": device.object_id,
+                        "device_id": device.id,
+                        "metric": sig_name,
+                        "event_id": uuid.uuid4(),
+                        "measured_at": now,
+                        "received_at": now,
+                        "value": float(val),
+                        "quality": "good",
+                        "unit": next(
+                            (
+                                s.unit or ""
+                                for s in device.signals
+                                if s.external_signal_id == sig_name
+                            ),
+                            "",
+                        ),
+                    },
+                )
 
     except Exception as e:
         logger.warning(f"Device {device.id} offline: {e}")
@@ -76,9 +98,16 @@ async def poll_device(device: Device, db: Session):
         await state_repo.update_state(str(device.id), {}, quality="offline")
 
         if was_online:
-            analytics.log_event("device_events", {
-                "organization_id": integration.organization_id, "building_id": device.object_id,
-                "device_id": device.id, "event_id": uuid.uuid4(),
-                "event_type": "disconnected", "severity": "warning",
-                "occurred_at": now, "payload": str(e)
-            })
+            analytics.log_event(
+                "device_events",
+                {
+                    "organization_id": integration.organization_id,
+                    "building_id": device.object_id,
+                    "device_id": device.id,
+                    "event_id": uuid.uuid4(),
+                    "event_type": "disconnected",
+                    "severity": "warning",
+                    "occurred_at": now,
+                    "payload": str(e),
+                },
+            )

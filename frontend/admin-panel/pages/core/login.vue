@@ -1,5 +1,4 @@
 <script setup lang="ts">
-definePageMeta({ path: '/login', name: 'login' })
 import { Eye, EyeOff, House, LockKeyhole, Mail } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,6 +6,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useAuthStore } from '~/stores/auth'
+import { Checkbox } from '@/components/ui/checkbox'
+import { getDemoStatus } from '~/utils/api/auth'
 
 definePageMeta({ layout: 'auth', path: '/login', name: 'login' })
 const auth = useAuthStore()
@@ -16,6 +17,31 @@ const showPassword = ref(false)
 const pending = ref(false)
 const error = ref('')
 const route = useRoute()
+const demoAvailable = ref(false)
+const demoSelected = ref(false)
+onMounted(async () => {
+  try {
+    demoAvailable.value = (await getDemoStatus()).enabled
+  } catch {
+    demoAvailable.value = false
+  }
+})
+async function enterDemo(checked: boolean | 'indeterminate') {
+  if (checked !== true || pending.value) return
+  demoSelected.value = true
+  pending.value = true
+  error.value = ''
+  try {
+    await auth.demoLogin()
+    password.value = ''
+    await navigateTo('/dashboard')
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'Не удалось войти в тестовый аккаунт'
+    demoSelected.value = false
+  } finally {
+    pending.value = false
+  }
+}
 async function submit() {
   if (pending.value) return
   error.value = ''
@@ -26,35 +52,88 @@ async function submit() {
     await navigateTo('/dashboard')
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Не удалось войти'
-  } finally { pending.value = false }
+  } finally {
+    pending.value = false
+  }
 }
 </script>
 
 <template>
   <Card class="mx-4 w-full max-w-sm">
     <CardHeader class="items-center text-center">
-      <span class="mb-2 rounded-xl bg-primary p-3 text-primary-foreground"><House class="size-6" /></span>
+      <span class="mb-2 rounded-xl bg-primary p-3 text-primary-foreground">
+        <House class="size-6" />
+      </span>
       <CardTitle class="text-2xl">Вход в систему</CardTitle>
       <CardDescription>Управление объектами умного дома</CardDescription>
     </CardHeader>
     <CardContent>
       <form class="space-y-4" @submit.prevent="submit">
-        <Alert v-if="route.query.registered"><AlertDescription>Учётная запись создана. Войдите с указанными данными.</AlertDescription></Alert>
-        <Alert v-if="error || auth.sessionError" variant="destructive" role="alert"><AlertDescription>{{ error || auth.sessionError }}</AlertDescription></Alert>
+        <Alert v-if="route.query.registered">
+          <AlertDescription>Учётная запись создана. Войдите с указанными данными.</AlertDescription>
+        </Alert>
+        <Alert v-if="error || auth.sessionError" variant="destructive" role="alert">
+          <AlertDescription>{{ error || auth.sessionError }}</AlertDescription>
+        </Alert>
+        <div v-if="demoAvailable" class="flex items-center gap-2 rounded-md border p-3">
+          <Checkbox
+            id="demo-account"
+            :model-value="demoSelected"
+            :disabled="pending"
+            @update:model-value="enterDemo"
+          />
+          <Label for="demo-account">Тестовый аккаунт</Label>
+        </div>
         <div class="space-y-2">
           <Label for="email">Электронная почта</Label>
-          <div class="relative"><Mail class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input id="email" v-model="email" required type="email" autocomplete="username" class="pl-9" placeholder="admin@example.com" :disabled="pending" /></div>
+          <div class="relative">
+            <Mail class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="email"
+              v-model="email"
+              required
+              type="email"
+              autocomplete="username"
+              class="pl-9"
+              placeholder="admin@example.com"
+              :disabled="pending"
+            />
+          </div>
         </div>
         <div class="space-y-2">
           <Label for="password">Пароль</Label>
           <div class="relative">
-            <LockKeyhole class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input id="password" v-model="password" required :type="showPassword ? 'text' : 'password'" autocomplete="current-password" class="pl-9 pr-10" :disabled="pending" />
-            <Button type="button" variant="ghost" size="icon" class="absolute right-0 top-0" :aria-label="showPassword ? 'Скрыть пароль' : 'Показать пароль'" @click="showPassword = !showPassword"><EyeOff v-if="showPassword" class="size-4" /><Eye v-else class="size-4" /></Button>
+            <LockKeyhole
+              class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              id="password"
+              v-model="password"
+              required
+              :type="showPassword ? 'text' : 'password'"
+              autocomplete="current-password"
+              class="pl-9 pr-10"
+              :disabled="pending"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              class="absolute right-0 top-0"
+              :aria-label="showPassword ? 'Скрыть пароль' : 'Показать пароль'"
+              @click="showPassword = !showPassword"
+            >
+              <EyeOff v-if="showPassword" class="size-4" />
+              <Eye v-else class="size-4" />
+            </Button>
           </div>
         </div>
-        <Button type="submit" class="w-full" :disabled="pending">{{ pending ? 'Вход…' : 'Войти' }}</Button>
-        <p class="text-center text-sm"><NuxtLink to="/register" class="underline">Создать учётную запись клиента</NuxtLink></p>
+        <Button type="submit" class="w-full" :disabled="pending">
+          {{ pending ? 'Вход…' : 'Войти' }}
+        </Button>
+        <p class="text-center text-sm">
+          <NuxtLink to="/register" class="underline">Создать учётную запись клиента</NuxtLink>
+        </p>
       </form>
     </CardContent>
   </Card>

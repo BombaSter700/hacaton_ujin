@@ -1,0 +1,13 @@
+node_modules/
+.nuxt/
+.output/
+.nitro/
+.data/
+.cache/
+.husky/
+dist/
+coverage/
+package-lock.json
+components/ui/
+public/images/
+public/icons/

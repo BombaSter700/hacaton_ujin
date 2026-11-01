@@ -1,4 +1,5 @@
 """Shared value and reference validation. No automatic rule execution here."""
+
 import math
 from fastapi import HTTPException
 from app.models.device import Device
@@ -12,9 +13,13 @@ def validate_value(signal, value, check_range=True):
             raise ValueError(f"{signal.name}: expected a finite number")
         if check_range:
             if signal.min_value is not None and value < signal.min_value:
-                raise ValueError(f"{signal.name}: value below minimum {signal.min_value}")
+                raise ValueError(
+                    f"{signal.name}: value below minimum {signal.min_value}"
+                )
             if signal.max_value is not None and value > signal.max_value:
-                raise ValueError(f"{signal.name}: value above maximum {signal.max_value}")
+                raise ValueError(
+                    f"{signal.name}: value above maximum {signal.max_value}"
+                )
     elif value_type == "boolean" and type(value) is not bool:
         raise ValueError(f"{signal.name}: expected true or false")
     elif value_type == "string" and not isinstance(value, str):
@@ -23,9 +28,14 @@ def validate_value(signal, value, check_range=True):
 
 def validate_definition(db, definition):
     """Reject stale signals, cross-object references and unavailable commands."""
-    refs = [c for c in definition.conditions if isinstance(c, SignalCondition)] + definition.actions
+    refs = [
+        c for c in definition.conditions if isinstance(c, SignalCondition)
+    ] + definition.actions
     ids = {ref.device_id for ref in refs}
-    devices = {device.id: device for device in db.query(Device).filter(Device.id.in_(ids)).all()}
+    devices = {
+        device.id: device
+        for device in db.query(Device).filter(Device.id.in_(ids)).all()
+    }
     try:
         for ref in refs:
             device = devices.get(ref.device_id)
@@ -37,7 +47,11 @@ def validate_definition(db, definition):
             is_condition = isinstance(ref, SignalCondition)
             if not is_condition and not signal.is_writable:
                 raise ValueError(f"{signal.name}: signal is read-only")
-            if is_condition and signal.value_type != "number" and ref.operator not in ("eq", "ne"):
+            if (
+                is_condition
+                and signal.value_type != "number"
+                and ref.operator not in ("eq", "ne")
+            ):
                 raise ValueError("Only numeric signals support ordered comparisons")
             # Thresholds may be outside the hardware command range.
             validate_value(signal, ref.value, check_range=not is_condition)

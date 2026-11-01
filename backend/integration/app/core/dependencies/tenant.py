@@ -1,6 +1,8 @@
 from fastapi import Depends
 from app.core.dependencies.integration import get_user_info
-from fastapi import Depends, HTTPException 
+from fastapi import HTTPException
+
+
 def require_object_access(object_id: str, user: dict = Depends(get_user_info)):
     # TODO: Реализовать проверку через БД или внешний сервис
     # Пока заглушка: админ имеет доступ ко всему

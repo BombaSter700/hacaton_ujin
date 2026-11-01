@@ -1,12 +1,21 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import (
-    Column, String, Boolean, ForeignKey, DateTime, Float, Enum, Integer, UniqueConstraint
+    Column,
+    String,
+    Boolean,
+    ForeignKey,
+    DateTime,
+    Float,
+    Enum,
+    Integer,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import relationship
 from .base import Base
 import enum
+
 
 class DeviceStatus(str, enum.Enum):
     ONLINE = "online"
@@ -20,9 +29,11 @@ class Device(Base):
 
     # Защита от дублей
     __table_args__ = (
-        UniqueConstraint('integration_id', 'external_id', name='uq_integration_external_id'),
+        UniqueConstraint(
+            "integration_id", "external_id", name="uq_integration_external_id"
+        ),
     )
-    
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     integration_id = Column(
         UUID(as_uuid=True), ForeignKey("integrations.id"), nullable=False
@@ -71,7 +82,9 @@ class Signal(Base):
 
     # Защита от дублей
     __table_args__ = (
-        UniqueConstraint('device_id', 'external_signal_id', name='uq_device_external_signal'),
+        UniqueConstraint(
+            "device_id", "external_signal_id", name="uq_device_external_signal"
+        ),
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

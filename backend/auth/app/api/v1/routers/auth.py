@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -22,6 +22,7 @@ from app.services.session_service import (
 from app.services.user_service import (
     authenticate_user,
     create_access_token,
+    create_demo_admin,
     register_user,
 )
 
@@ -52,6 +53,22 @@ def register(request: Request, data: UserCreate, db: Session = Depends(get_db)):
 @limiter.limit("5/minute")
 def login(request: Request, data: LoginRequest, db: Session = Depends(get_db)):
     user = authenticate_user(db, data)
+    session, refresh_token = create_session(db, user)
+    return token_response(user, session, refresh_token)
+
+
+@router.get("/demo")
+def demo_status(response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return {"enabled": settings.demo_login_enabled}
+
+
+@router.post("/demo", response_model=Token)
+@limiter.limit("10/minute")
+def demo_login(request: Request, db: Session = Depends(get_db)):
+    if not settings.demo_login_enabled:
+        raise HTTPException(status_code=404, detail="Demo login is disabled")
+    user = create_demo_admin(db)
     session, refresh_token = create_session(db, user)
     return token_response(user, session, refresh_token)
 

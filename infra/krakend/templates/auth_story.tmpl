@@ -37,6 +37,44 @@
   ]
 },
 {
+  "endpoint": "/api/v1/auth/demo",
+  "method": "POST",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "AUTH_SERVICE_URL" | default "http://programmisto_auth:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/auth/demo",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
+  "endpoint": "/api/v1/auth/demo",
+  "method": "GET",
+  "output_encoding": "no-op",
+  "input_headers": [
+    "Authorization",
+    "Content-Type",
+    "Accept"
+  ],
+  "backend": [
+    {
+      "host": [
+        {{ env "AUTH_SERVICE_URL" | default "http://programmisto_auth:8000" | toJson }}
+      ],
+      "url_pattern": "/api/v1/auth/demo",
+      "encoding": "no-op"
+    }
+  ]
+},
+{
   "endpoint": "/api/v1/auth/refresh",
   "method": "POST",
   "output_encoding": "no-op",

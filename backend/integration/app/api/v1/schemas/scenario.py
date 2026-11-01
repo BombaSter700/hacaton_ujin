@@ -2,13 +2,24 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictFloat,
+    StrictInt,
+    StrictStr,
+    field_validator,
+)
 
 SignalValue = StrictBool | StrictInt | StrictFloat | StrictStr
 
 
 class StrictModel(BaseModel):
-    model_config = ConfigDict(extra="forbid", allow_inf_nan=False, str_strip_whitespace=True)
+    model_config = ConfigDict(
+        extra="forbid", allow_inf_nan=False, str_strip_whitespace=True
+    )
 
 
 class SignalCondition(StrictModel):

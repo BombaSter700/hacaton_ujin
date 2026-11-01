@@ -14,9 +14,13 @@ from backend.emulators.devices.light import Light  # noqa: E402
 class TestSignalGroups(unittest.TestCase):
     def test_group_mapping(self):
         self.assertEqual(Signal("a", "A", "graph", "r", "property").group, "property")
-        self.assertEqual(Signal("b", "B", "switch", "rw", "capability").group, "capability")
+        self.assertEqual(
+            Signal("b", "B", "switch", "rw", "capability").group, "capability"
+        )
         self.assertEqual(Signal("c", "C", "counter", "rw", "setting").group, "setting")
-        self.assertEqual(Signal("d", "D", "button", "w", "capability").group, "capability")
+        self.assertEqual(
+            Signal("d", "D", "button", "w", "capability").group, "capability"
+        )
 
 
 class TestCounter(unittest.TestCase):
@@ -75,20 +79,20 @@ class TestFire(unittest.TestCase):
 
 class TestLight(unittest.TestCase):
     def test_on_measures_power(self):
-        l = Light(serial="1")
-        l.signals["lamp"].value = 1
-        l.tick(1)
-        self.assertGreater(l.signals["power_w"].value, 0)
-        self.assertGreater(l.signals["energy_kwh"].value, 0)
+        light = Light(serial="1")
+        light.signals["lamp"].value = 1
+        light.tick(1)
+        self.assertGreater(light.signals["power_w"].value, 0)
+        self.assertGreater(light.signals["energy_kwh"].value, 0)
 
     def test_timer_turns_off(self):
-        l = Light(serial="1")
-        l.on_command("lamp", 1)
-        l.signals["offline_timeout"].value = 2
-        l.on_command("lamp", 1)
+        light = Light(serial="1")
+        light.on_command("lamp", 1)
+        light.signals["offline_timeout"].value = 2
+        light.on_command("lamp", 1)
         for _ in range(3):
-            l.tick(1)
-        self.assertEqual(l.signals["lamp"].value, 0)
+            light.tick(1)
+        self.assertEqual(light.signals["lamp"].value, 0)
 
 
 if __name__ == "__main__":

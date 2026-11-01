@@ -6,7 +6,11 @@ export interface TokenStore {
   clear(): void
 }
 export class ApiError extends Error {
-  constructor(public status: number, message: string, public data?: unknown) {
+  constructor(
+    public status: number,
+    message: string,
+    public data?: unknown,
+  ) {
     super(message)
     this.name = 'ApiError'
   }
@@ -30,19 +34,30 @@ function error(response: Response, data: unknown): ApiError {
   const detail = data && typeof data === 'object' && 'detail' in data ? data.detail : undefined
   let message = typeof detail === 'string' ? detail : 'Ошибка запроса: HTTP ' + response.status
   if (Array.isArray(detail)) {
-    message = detail.map(item => {
-      const field = Array.isArray(item.loc) ? item.loc.filter((x: unknown) => x !== 'body').join('.') : ''
-      return [field, typeof item.msg === 'string' ? item.msg : 'Некорректное значение'].filter(Boolean).join(': ')
-    }).join('; ')
+    message = detail
+      .map((item) => {
+        const field = Array.isArray(item.loc)
+          ? item.loc.filter((x: unknown) => x !== 'body').join('.')
+          : ''
+        return [field, typeof item.msg === 'string' ? item.msg : 'Некорректное значение']
+          .filter(Boolean)
+          .join(': ')
+      })
+      .join('; ')
   }
   return new ApiError(response.status, message, data)
 }
 export function validTokens(value: unknown): value is TokenResponse {
   if (!value || typeof value !== 'object') return false
   const tokens = value as TokenResponse
-  return typeof tokens.access_token === 'string' && !!tokens.access_token
-    && typeof tokens.refresh_token === 'string' && !!tokens.refresh_token
-    && typeof tokens.expires_in === 'number' && typeof tokens.refresh_expires_in === 'number'
+  return (
+    typeof tokens.access_token === 'string' &&
+    !!tokens.access_token &&
+    typeof tokens.refresh_token === 'string' &&
+    !!tokens.refresh_token &&
+    typeof tokens.expires_in === 'number' &&
+    typeof tokens.refresh_expires_in === 'number'
+  )
 }
 
 export function createHttpClient(config: {
@@ -62,28 +77,41 @@ export function createHttpClient(config: {
   async function refresh(): Promise<boolean> {
     if (refreshing) return refreshing
     const current = config.tokens.get()
-    if (!current?.refresh_token) { invalidate(); return false }
+    if (!current?.refresh_token) {
+      invalidate()
+      return false
+    }
     refreshing = (async () => {
       const response = await fetcher(base + '/auth/refresh', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh_token: current.refresh_token }),
       })
       const data = await read(response)
       if (!response.ok) {
-        if (response.status === 401) { invalidate(); return false }
+        if (response.status === 401) {
+          invalidate()
+          return false
+        }
         throw error(response, data)
       }
       if (!validTokens(data)) throw new ApiError(502, 'Некорректный ответ обновления сессии')
-      // A logout or a new login may have happened while refresh was in flight.
       if (config.tokens.get()?.refresh_token !== current.refresh_token) return false
       config.tokens.set(data)
       return true
     })()
-    try { return await refreshing }
-    finally { refreshing = null }
+    try {
+      return await refreshing
+    } finally {
+      refreshing = null
+    }
   }
 
-  return async function request<T>(endpoint: string, options: RequestInit = {}, skipAuth = false): Promise<T> {
+  return async function request<T>(
+    endpoint: string,
+    options: RequestInit = {},
+    skipAuth = false,
+  ): Promise<T> {
     if (!endpoint.startsWith('/') || endpoint.startsWith('//') || endpoint.includes('://')) {
       throw new Error('API endpoint must be a relative path')
     }
@@ -97,7 +125,12 @@ export function createHttpClient(config: {
         const token = config.tokens.get()?.access_token
         if (token) headers.set('Authorization', 'Bearer ' + token)
       }
-      return fetcher(base + endpoint, { ...options, headers, credentials: 'omit', cache: 'no-store' })
+      return fetcher(base + endpoint, {
+        ...options,
+        headers,
+        credentials: 'omit',
+        cache: 'no-store',
+      })
     }
     let response = await send()
     if (!skipAuth && response.status === 401 && config.refreshOn401 !== false) {
